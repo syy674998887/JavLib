@@ -170,8 +170,20 @@ def fetch_javdb(fetcher, code):
     seen = set()
     block = re.search(r"<strong>演員\s*:?\s*</strong>(.*?)</div>", page, re.S)
     if block:
-        for match in re.finditer(r">([^<>]+)</a>\s*<strong[^>]*>\s*♀", block.group(1)):
-            name = _clean(match.group(1))
+        for match in re.finditer(
+            r"<a\b(?P<attrs>[^>]*)>(?P<name>.*?)</a>"
+            r"(?P<legacy>\s*<strong\b[^>]*>\s*♀)?",
+            block.group(1),
+            re.S,
+        ):
+            # Current pages mark the link; older pages put a female symbol after it.
+            class_attribute = re.search(
+                r"""\sclass\s*=\s*(["'])(.*?)\1""", match.group("attrs"), re.S
+            )
+            classes = class_attribute.group(2).split() if class_attribute else []
+            if "actor-female" not in classes and not match.group("legacy"):
+                continue
+            name = _clean(match.group("name"))
             if name and name not in seen:
                 seen.add(name)
                 actors.append({"name": name, "thumb": ""})

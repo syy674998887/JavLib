@@ -1,6 +1,6 @@
 from xml.etree import ElementTree as ET
 
-from javlibrarian.nfo import build_nfo
+from javlib.nfo import build_nfo
 
 
 def test_nfo_contains_media_center_fields_and_escapes_text():

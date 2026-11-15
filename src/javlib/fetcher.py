@@ -9,7 +9,7 @@ try:
 except ImportError:
     sys.exit(
         "Missing requests. This project manages dependencies with uv. Run:  uv sync\n"
-        "Then use uv run javlibrarian ... instead of invoking Python directly."
+        "Then use uv run javlib ... instead of invoking Python directly."
     )
 
 

@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from javlibrarian.rename import (
+from javlib.rename import (
     RenameLog,
     default_journal,
     do_rename_folders,

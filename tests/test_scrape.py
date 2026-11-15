@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from javlibrarian import scrape as scrape_module
+from javlib import scrape as scrape_module
 
 
 class MovieFetcher:

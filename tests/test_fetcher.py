@@ -4,7 +4,7 @@ from contextlib import redirect_stdout
 import pytest
 import requests
 
-from javlibrarian.fetcher import Fetcher
+from javlib.fetcher import Fetcher
 
 
 class FakeResponse:

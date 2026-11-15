@@ -2,7 +2,7 @@ import io
 
 from PIL import Image
 
-from javlibrarian import artwork
+from javlib import artwork
 
 
 class ImageFetcher:

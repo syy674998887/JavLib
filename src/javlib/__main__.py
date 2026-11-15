@@ -1,4 +1,4 @@
-"""Run JavLibrarian with ``python -m javlibrarian``."""
+"""Run JavLib with ``python -m javlib``."""
 
 from .cli import main
 

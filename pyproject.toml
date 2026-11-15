@@ -1,5 +1,5 @@
 [project]
-name = "jav-librarian"
+name = "javlib"
 version = "0.1.0"
 description = "Lightweight, safety-first JAV media library organizer for NAS."
 readme = "README.md"
@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [project.scripts]
-javlibrarian = "javlibrarian.cli:main"
+javlib = "javlib.cli:main"
 
 [project.urls]
 Repository = "https://github.com/syy674998887/JavLibrarian"

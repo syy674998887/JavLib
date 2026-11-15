@@ -2,8 +2,8 @@
 
 import pytest
 
-from javlibrarian import fetcher as fetcher_module
-from javlibrarian.fetcher import Fetcher
+from javlib import fetcher as fetcher_module
+from javlib.fetcher import Fetcher
 
 
 class FakeResponse:

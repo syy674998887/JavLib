@@ -1,4 +1,4 @@
-<h1 align="center">JavLibrarian</h1>
+<h1 align="center">JavLib</h1>
 
 <p align="center">
   <b>A lightweight, safety-first NAS librarian for JAV collections.</b>
@@ -14,7 +14,7 @@
   <b>English</b> · <a href="README.zh-CN.md">简体中文</a>
 </p>
 
-JavLibrarian organizes JAV media libraries on NAS systems: it recognizes catalog numbers from folder names, queries JavBus and JavDB, and generates NFO files and artwork for local media centers. UGREEN UGOS reads the filename-matched NFO files (with “prefer local metadata” enabled), while Emby, Jellyfin, and Kodi use the folder-level `movie.nfo`.
+JavLib organizes JAV media libraries on NAS systems: it recognizes catalog numbers from folder names or accepts them directly, queries JavBus and JavDB, and generates NFO files and artwork for local media centers. UGREEN UGOS reads the filename-matched NFO files (with “prefer local metadata” enabled), while Emby, Jellyfin, and Kodi use the folder-level `movie.nfo`.
 
 ---
 
@@ -37,10 +37,10 @@ JavLibrarian organizes JAV media libraries on NAS systems: it recognizes catalog
 ## Installation
 
 ```bash
-git clone https://github.com/syy674998887/JavLibrarian.git
-cd JavLibrarian
+git clone https://github.com/syy674998887/JavLibrarian.git JavLib
+cd JavLib
 uv sync
-uv run javlibrarian --help
+uv run javlib --help
 ```
 
 Requires Python 3.11+. Commands are the same on macOS, Windows, and Linux.
@@ -49,7 +49,7 @@ Requires Python 3.11+. Commands are the same on macOS, Windows, and Linux.
 
 ## Library layout
 
-`--dir` sets the media-library root. JavLibrarian scans only its immediate subdirectories, recognizes catalog numbers from their names, and does not recurse further. Hidden directories are ignored. `inspect` reports names with no recognized catalog number; `scrape` and both `rename-*` commands skip them.
+`--dir` sets the media-library root. JavLib scans only its immediate subdirectories, recognizes catalog numbers from their names, and does not recurse further. Hidden directories are ignored. `inspect` reports names with no recognized catalog number; `scrape` and both `rename-*` commands skip them.
 
 ```text
 /path/to/JAV/
@@ -74,12 +74,13 @@ Video filenames do not need to match their directory name. Multiple supported vi
 ## Command reference
 
 ```bash
-uv run javlibrarian COMMAND [OPTIONS]
+uv run javlib COMMAND [OPTIONS]
 ```
 
 | Command | Purpose |
 | --- | --- |
 | `scrape` | Query metadata and generate NFO files and artwork |
+| `get CODE [CODE ...]` | Scrape catalog numbers into `output/` without local videos |
 | `inspect` | Show the query ID and tags recognized from each folder name |
 | `rename-folders` | Normalize immediate-subdirectory names |
 | `rename-videos` | Clean video and matching sidecar filenames |
@@ -87,19 +88,21 @@ uv run javlibrarian COMMAND [OPTIONS]
 | `undo-videos` | Roll back the latest batch of video renames |
 
 > [!IMPORTANT]
-> `inspect` does not use the network or write to disk. `scrape` uses the network and writes NFO files and artwork, but never deletes or rewrites videos. The two rename and two rollback commands preview by default and require `--apply` to execute.
+> `inspect` does not use the network or write to disk. `scrape` and `get` use the network and write NFO files and artwork, but never delete or rewrite videos. The two rename and two rollback commands preview by default and require `--apply` to execute.
 
 ### Directory and selection
 
 | Option | Commands | Purpose |
 | --- | --- | --- |
-| `--dir PATH` | All | Media-library root; falls back to `JAVLIBRARIAN_DIR` when omitted |
+| `--dir PATH` | All except `get` | Media-library root; falls back to `JAVLIB_DIR` when omitted |
 | `--limit N` | `scrape`, `inspect`, both `rename-*` commands | After `--only` filtering, process at most the first N folders in case-insensitive name order; `0` (default) means all |
 | `--only NAME` | `scrape`, `inspect`, both `rename-*` commands | Process only the immediate folder for a specified catalog number; `NAME` must be the complete, case-sensitive folder name and may be repeated |
 
+The previous `JAVLIBRARIAN_DIR` variable remains supported. The media-root priority is `--dir`, then `JAVLIB_DIR`, then `JAVLIBRARIAN_DIR`.
+
 ### Scraping
 
-These options belong only to `scrape`:
+These options apply to both `scrape` and `get`:
 
 | Option | Purpose |
 | --- | --- |
@@ -112,6 +115,14 @@ These options belong only to `scrape`:
 Delay values must be finite and non-negative. Zero disables only the corresponding base interval; retry backoff may still wait.
 
 HTTP 408, 429, 500, 502, 503, 504 and network exceptions are retried for at most five attempts. Backoff starts at 10 seconds, doubles, and caps at 300 seconds; a numeric `Retry-After` on 429 takes precedence. Every 429 or 503 multiplies the affected nonzero host/request-type base interval by 1.5, capped at 30 seconds. Other 4xx responses are not retried.
+
+### Export by catalog number
+
+`get` accepts one or more standalone catalog numbers, such as `SONE-035`, `3DSVR-1823`, and `FC2-PPV-1234567`. Lowercase, underscore separators, and DMM content IDs such as `sone00035` are also accepted. Duplicate normalized numbers are processed once.
+
+It automatically creates `output/{normalized-code}/` under the current working directory, without requiring videos or existing folders. Use `-o PATH` or `--output PATH` to change the destination root; this command does not use `JAVLIB_DIR`. The default project `output/` is gitignored.
+
+Each title receives `movie.nfo`, plus successfully generated `fanart.jpg`, `poster.jpg`, and `Samples/` stills. Existing `movie.nfo` files cause a skip; add `--force` to re-scrape.
 
 ### Rename and rollback
 
@@ -127,9 +138,19 @@ Each `undo-*` invocation handles only the latest batch in its journal; run it ag
 ## Quick start
 
 ```bash
-uv run javlibrarian inspect --dir "/path/to/JAV"
-uv run javlibrarian scrape --dir "/path/to/JAV"
+uv run javlib inspect --dir "/path/to/JAV"
+uv run javlib scrape --dir "/path/to/JAV"
 ```
+
+Export directly by catalog number without local videos:
+
+```bash
+uv run javlib get SONE-035
+uv run javlib get SONE-035 IPVR-256
+uv run javlib get SONE-035 --output "/path/to/export" --force
+```
+
+The first command writes to `output/SONE-035/` by default.
 
 ---
 
@@ -212,6 +233,22 @@ uv run --group test pytest
 ```
 
 The test suite is fully offline and does not contact live metadata sites.
+
+### Daily website format checks
+
+After the workflow is merged into `main`, GitHub Actions checks the live sites daily at 08:23 America/New_York and supports manual runs. PR updates run only offline tests; scheduled and manual live jobs run serially.
+
+`scripts/check_live_sources.py` calls the real adapters for one reference title per source (default `SONE-035`). It checks the ID, title, date, runtime, studio, actors, genres, and cover/still URLs. A normal run makes one JavBus request and two JavDB requests (search and detail), at least five seconds apart on JavDB. It does not download images or scan or write a media library.
+
+- `PASS`: all required reference-title fields parsed successfully.
+- `PARSE_ERROR`: metadata is missing or invalid; review the HTML, adapter, and reference title.
+- `ACCESS_BLOCKED`: a login redirect, verification page, or HTTP 401/403/429; stop without retrying.
+- `NETWORK_ERROR` / `HTTP_ERROR`: a transport or HTTP failure; transient failures are retried at most once.
+- `CHECK_ERROR`: another exception in the check or adapter.
+
+Every non-`PASS` result fails the job and explains the cause in the Actions summary, so an unverified source cannot appear healthy. This detects field regressions in the reference title; it does not cover every title or verify image downloads.
+
+Run locally with `uv run python scripts/check_live_sources.py`. Override `JAVBUS_SMOKE_CODE` or `JAVDB_SMOKE_CODE` only with a known title containing all required fields.
 
 ---
 

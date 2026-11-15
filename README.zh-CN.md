@@ -1,4 +1,4 @@
-<h1 align="center">JavLibrarian</h1>
+<h1 align="center">JavLib</h1>
 
 <p align="center">
   <b>轻量、安全优先的 JAV NAS 媒体库建设工具。</b>
@@ -14,7 +14,7 @@
   <a href="README.md">English</a> · <b>简体中文</b>
 </p>
 
-JavLibrarian 用于整理 NAS 上的 JAV 媒体库：从文件夹名识别番号，查询 JavBus 与 JavDB，并生成媒体中心可读取的 NFO 与图片。视频同名 NFO 适配绿联 UGOS 影视中心（需开启「优先读取本地信息」），文件夹级 `movie.nfo` 兼容 Emby / Jellyfin / Kodi。
+JavLib 用于整理 NAS 上的 JAV 媒体库：从文件夹名识别番号，或直接输入番号，查询 JavBus 与 JavDB，并生成媒体中心可读取的 NFO 与图片。视频同名 NFO 适配绿联 UGOS 影视中心（需开启「优先读取本地信息」），文件夹级 `movie.nfo` 兼容 Emby / Jellyfin / Kodi。
 
 ---
 
@@ -37,10 +37,10 @@ JavLibrarian 用于整理 NAS 上的 JAV 媒体库：从文件夹名识别番号
 ## 安装
 
 ```bash
-git clone https://github.com/syy674998887/JavLibrarian.git
-cd JavLibrarian
+git clone https://github.com/syy674998887/JavLibrarian.git JavLib
+cd JavLib
 uv sync
-uv run javlibrarian --help
+uv run javlib --help
 ```
 
 支持 Python 3.11+；macOS、Windows 与 Linux 使用相同命令。
@@ -74,12 +74,13 @@ uv run javlibrarian --help
 ## 命令参考
 
 ```bash
-uv run javlibrarian COMMAND [OPTIONS]
+uv run javlib COMMAND [OPTIONS]
 ```
 
 | 命令 | 用途 |
 | --- | --- |
 | `scrape` | 查询元数据并生成 NFO 与图片 |
+| `get CODE [CODE ...]` | 直接按番号刮削到 `output/`，无需本地视频 |
 | `inspect` | 显示从文件夹名识别的查询番号与标签 |
 | `rename-folders` | 标准化一级文件夹名称 |
 | `rename-videos` | 清理视频及匹配附属文件的名称 |
@@ -87,19 +88,21 @@ uv run javlibrarian COMMAND [OPTIONS]
 | `undo-videos` | 回滚最近一批视频改名 |
 
 > [!IMPORTANT]
-> `inspect` 不联网、不写盘。`scrape` 会联网并写入 NFO 与图片，但不会删除或改写视频。两种改名和两种回滚命令默认只预览，必须提供 `--apply` 才会执行。
+> `inspect` 不联网、不写盘。`scrape` 和 `get` 会联网并写入 NFO 与图片，但不会删除或改写视频。两种改名和两种回滚命令默认只预览，必须提供 `--apply` 才会执行。
 
 ### 目录与筛选
 
 | 参数 | 可用命令 | 用途 |
 | --- | --- | --- |
-| `--dir PATH` | 全部 | 媒体库根目录；未提供时读取 `JAVLIBRARIAN_DIR` |
+| `--dir PATH` | 除 `get` 外的全部命令 | 媒体库根目录；未提供时读取 `JAVLIB_DIR` |
 | `--limit N` | `scrape`、`inspect`、两种 `rename-*` | 在应用 `--only` 后，最多处理按文件夹名不区分大小写排序的前 N 项；`0`（默认）表示全部 |
 | `--only NAME` | `scrape`、`inspect`、两种 `rename-*` | 只处理指定番号对应的一级文件夹；`NAME` 必须是完整文件夹名且区分大小写，可重复提供 |
 
+旧环境变量 `JAVLIBRARIAN_DIR` 仍兼容。媒体库路径的优先级为：`--dir`、`JAVLIB_DIR`、`JAVLIBRARIAN_DIR`。
+
 ### 刮削
 
-以下参数只属于 `scrape`：
+以下参数适用于 `scrape` 和 `get`：
 
 | 参数 | 用途 |
 | --- | --- |
@@ -112,6 +115,14 @@ uv run javlibrarian COMMAND [OPTIONS]
 延迟值必须是有限的非负数。`0` 只关闭对应的基础间隔，重试退避仍可能等待。
 
 HTTP 408、429、500、502、503、504 与网络异常最多重试 5 次。退避从 10 秒开始逐次翻倍，最高 300 秒；429 的纯数字 `Retry-After` 会优先采用。每次 429 或 503 会将受影响的非零「主机 + 请求类型」基础间隔乘以 1.5，最高 30 秒；其他 4xx 不重试。
+
+### 按番号导出
+
+`get` 接受一个或多个纯番号，例如 `SONE-035`、`3DSVR-1823`、`FC2-PPV-1234567`。也支持小写、下划线分隔及 `sone00035` 这类 DMM 内容 ID；相同的规范化番号只处理一次。
+
+默认自动创建当前工作目录下的 `output/{规范化番号}/`，无需预先准备视频或文件夹。用 `-o PATH` 或 `--output PATH` 指定输出根目录；此命令不使用 `JAVLIB_DIR`。默认的项目 `output/` 已被 Git 忽略。
+
+每个番号生成 `movie.nfo`，并保存成功下载的 `fanart.jpg`、`poster.jpg` 和 `Samples/` 剧照。已有 `movie.nfo` 时跳过，添加 `--force` 可重新刮削。
 
 ### 改名与回滚
 
@@ -127,9 +138,19 @@ HTTP 408、429、500、502、503、504 与网络异常最多重试 5 次。退�
 ## 快速开始
 
 ```bash
-uv run javlibrarian inspect --dir "/path/to/JAV"
-uv run javlibrarian scrape --dir "/path/to/JAV"
+uv run javlib inspect --dir "/path/to/JAV"
+uv run javlib scrape --dir "/path/to/JAV"
 ```
+
+无需本地视频，直接按番号导出：
+
+```bash
+uv run javlib get SONE-035
+uv run javlib get SONE-035 IPVR-256
+uv run javlib get SONE-035 --output "/path/to/export" --force
+```
+
+第一条命令默认写入 `output/SONE-035/`。
 
 ---
 
@@ -212,6 +233,22 @@ uv run --group test pytest
 ```
 
 测试完全离线，不访问真实元数据站点。
+
+### 每日网站格式检查
+
+将工作流合并到 `main` 后，GitHub Actions 每天按纽约时间 08:23 检查真实网站，也可手动触发。PR 更新只运行离线测试；定时与手动的在线任务串行执行。
+
+`scripts/check_live_sources.py` 调用项目的实际抓取函数，每站检查一个固定样例（默认 `SONE-035`），校验番号、标题、日期、时长、制作商、演员、类别及封面/剧照 URL。正常情况下 JavBus 请求一次，JavDB 请求搜索和详情页两次、间隔至少 5 秒；不下载图片、不扫描或写入媒体库。
+
+- `PASS`：样例的必需字段均可解析。
+- `PARSE_ERROR`：元数据缺失或异常，需要检查网页结构、解析规则或样例是否仍可用。
+- `ACCESS_BLOCKED`：登录跳转、验证页或 HTTP 401/403/429；停止请求，不重试。
+- `NETWORK_ERROR` / `HTTP_ERROR`：网络或 HTTP 请求失败；短暂故障最多重试一次。
+- `CHECK_ERROR`：检查脚本或解析器出现其他异常。
+
+任何非 `PASS` 结果都会使任务失败，并在 Actions 摘要中说明原因，避免把无法验证的网站标为正常。此检查用于发现样例中的字段回归，不保证覆盖所有影片或图片下载问题。
+
+手动本地检查：`uv run python scripts/check_live_sources.py`。可用 `JAVBUS_SMOKE_CODE`、`JAVDB_SMOKE_CODE` 更换样例，但需选择已收录且上述字段完整的影片。
 
 ---
 

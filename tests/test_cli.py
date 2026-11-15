@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from javlibrarian import cli as cli_module
-from javlibrarian.cli import build_parser, parse_cli_args
+from javlib import cli as cli_module
+from javlib.cli import build_parser, parse_cli_args
 
 
 def cli_parse(*argv):
@@ -68,6 +68,7 @@ def test_top_level_help_lists_all_explicit_commands():
         name in top_help
         for name in (
             "scrape",
+            "get",
             "inspect",
             "rename-folders",
             "rename-videos",
@@ -166,9 +167,24 @@ def test_explicit_journal_path_is_kept():
 
 
 def test_media_root_can_come_from_environment(monkeypatch):
-    monkeypatch.setenv("JAVLIBRARIAN_DIR", "/media/JAV")
+    monkeypatch.setenv("JAVLIB_DIR", "/media/JAV")
 
     assert parse_cli_args(["inspect"]).dir == "/media/JAV"
+
+
+def test_legacy_media_root_environment_still_works(monkeypatch):
+    monkeypatch.delenv("JAVLIB_DIR", raising=False)
+    monkeypatch.setenv("JAVLIBRARIAN_DIR", "/media/legacy")
+
+    assert parse_cli_args(["inspect"]).dir == "/media/legacy"
+
+
+def test_media_root_priority_is_cli_then_new_then_legacy_environment(monkeypatch):
+    monkeypatch.setenv("JAVLIB_DIR", "/media/new")
+    monkeypatch.setenv("JAVLIBRARIAN_DIR", "/media/legacy")
+
+    assert parse_cli_args(["inspect"]).dir == "/media/new"
+    assert parse_cli_args(["inspect", "--dir", "/media/explicit"]).dir == "/media/explicit"
 
 
 def test_main_replaces_standard_stream_encoding_errors(monkeypatch):

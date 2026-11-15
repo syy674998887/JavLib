@@ -11,6 +11,9 @@ build/
 dist/
 *.egg-info/
 
+# Generated metadata and artwork from get
+/output/
+
 # Local environment configuration
 .env
 .env.*

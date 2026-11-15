@@ -1,4 +1,4 @@
-from javlibrarian.sources import (
+from javlib.sources import (
     fetch_javdb,
     javdb_find,
     merge_sources,
@@ -111,6 +111,54 @@ def test_javdb_fetch_parses_detail_page():
         "https://c1.jdbstatic.com/samples/key_l_2.jpg",
     ]
     assert fetcher.urls[-1] == "https://javdb.com/v/right?locale=zh"
+
+
+def test_javdb_fetch_parses_current_actress_markup():
+    search = '<a href="/v/right"><strong>TEST-001</strong></a>'
+    detail = """
+    <h2 class="title is-4"><strong>TEST-001</strong><strong>Title</strong></h2>
+    <div class="panel-block">
+      <strong>演員:</strong>&nbsp;<span class="value">
+        <a class="actor-female" href="/actors/a">女優甲</a>,
+        <a href="/actors/male">男優</a>,
+        <a href="/actors/b" class='tag actor-female featured'><span>女優乙</span></a>,
+        <a class="actor-female" href="/actors/a">女優甲</a>,
+        <a class="actor-female" href="/actors/empty">&nbsp;</a>
+      </span>
+    </div>
+    <a class="actor-female" href="/actors/unrelated">其他影片演员</a>
+    """
+    fetcher = ScriptedFetcher([(200, search), (200, detail)])
+
+    data = fetch_javdb(fetcher, "TEST-001")
+
+    assert data["actors"] == [
+        {"name": "女優甲", "thumb": ""},
+        {"name": "女優乙", "thumb": ""},
+    ]
+
+
+def test_javdb_actress_markers_preserve_order_and_exclude_unmarked_actors():
+    search = '<a href="/v/right"><strong>TEST-001</strong></a>'
+    detail = """
+    <h2 class="title"><strong>TEST-001</strong><strong>Title</strong></h2>
+    <div><strong>演員:</strong>
+      <a class="actor-female" href="/actors/a">A &amp; B</a>
+      <a href="/actors/legacy">Legacy</a><strong class="symbol">♀</strong>
+      <a href="/actors/a">A &amp; B</a><strong>♀</strong>
+      <a class="actor-female-extra" href="/actors/unmarked">Unmarked</a>
+      <a data-class="actor-female" href="/actors/other">Other</a>
+      <a class="actor-male" href="/actors/male">Male</a><strong>♂</strong>
+    </div>
+    """
+    fetcher = ScriptedFetcher([(200, search), (200, detail)])
+
+    data = fetch_javdb(fetcher, "TEST-001")
+
+    assert data["actors"] == [
+        {"name": "A & B", "thumb": ""},
+        {"name": "Legacy", "thumb": ""},
+    ]
 
 
 def test_source_merge_promotes_fallback_samples_when_primary_has_none():

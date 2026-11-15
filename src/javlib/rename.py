@@ -215,7 +215,7 @@ def do_rename_folders(folders, log_path, apply=False):
     print(f"\nFolder rename complete: succeeded {ok}  skipped {skip}  failed {fail}")
     if recorded:
         print(f"Journal saved: {log_path}")
-        print('Preview undo:  uv run javlibrarian undo-folders --dir "<media-root>"')
+        print('Preview undo:  uv run javlib undo-folders --dir "<media-root>"')
 
 
 def undo_path_state(source, target, kind):
@@ -610,7 +610,7 @@ def do_rename_videos(folders, log_path, apply=False):
     print(f"\nVideo rename complete: succeeded {ok}  skipped {skip}  failed {fail}")
     if recorded:
         print(f"Journal saved: {log_path}")
-        print('Preview undo:  uv run javlibrarian undo-videos --dir "<media-root>"')
+        print('Preview undo:  uv run javlib undo-videos --dir "<media-root>"')
 
 
 def video_undo_moves(item):

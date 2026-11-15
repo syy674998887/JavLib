@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from javlibrarian.catalog import list_folders, normalize, standard_name
+from javlib.catalog import list_folders, normalize, standard_name
 
 
 @pytest.mark.parametrize(
