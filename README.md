@@ -37,7 +37,7 @@ JavLib organizes JAV media libraries on NAS systems: it recognizes catalog numbe
 ## Installation
 
 ```bash
-git clone https://github.com/syy674998887/JavLibrarian.git JavLib
+git clone https://github.com/syy674998887/JavLib.git
 cd JavLib
 uv sync
 uv run javlib --help

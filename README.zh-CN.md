@@ -37,7 +37,7 @@ JavLib 用于整理 NAS 上的 JAV 媒体库：从文件夹名识别番号，或
 ## 安装
 
 ```bash
-git clone https://github.com/syy674998887/JavLibrarian.git JavLib
+git clone https://github.com/syy674998887/JavLib.git
 cd JavLib
 uv sync
 uv run javlib --help

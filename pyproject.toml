@@ -14,8 +14,8 @@ dependencies = [
 javlib = "javlib.cli:main"
 
 [project.urls]
-Repository = "https://github.com/syy674998887/JavLibrarian"
-Issues = "https://github.com/syy674998887/JavLibrarian/issues"
+Repository = "https://github.com/syy674998887/JavLib"
+Issues = "https://github.com/syy674998887/JavLib/issues"
 
 [dependency-groups]
 test = [
