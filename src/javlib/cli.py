@@ -301,4 +301,4 @@ def main():
         title_delay=args.delay,
         verbose=args.verbose,
     )
-    do_scrape(folders, fetcher, args)
+    return do_scrape(folders, fetcher, args)

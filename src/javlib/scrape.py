@@ -168,7 +168,7 @@ def scrape_one(folder, fetcher, args):
 
 
 def do_scrape(folders, fetcher, args):
-    """Run serial scraping and print an aggregate result summary."""
+    """Run serial scraping and return 0 for success, 1 for failures, or 130 on interrupt."""
     print(
         f"Intervals: pages {args.page_delay}s / images {args.image_delay}s / "
         f"titles {args.delay}s   Force: {'yes' if args.force else 'no'}"
@@ -177,12 +177,14 @@ def do_scrape(folders, fetcher, args):
 
     stats = {"OK": 0, "SKIP": 0, "MISS": 0}
     misses = []
+    interrupted = False
     started_at = time.time()
 
     for index, folder in enumerate(folders, 1):
         try:
             status, message = scrape_one(folder, fetcher, args)
         except KeyboardInterrupt:
+            interrupted = True
             print(
                 "\nInterrupted. A rerun will skip completed titles that already have movie.nfo."
             )
@@ -228,3 +230,4 @@ def do_scrape(folders, fetcher, args):
         print("\nUnmatched titles (manual review may be needed):")
         for name, message in misses:
             print(f"  · {name:<44} {message}")
+    return 130 if interrupted else int(stats["MISS"] > 0)

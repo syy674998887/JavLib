@@ -467,7 +467,7 @@ def plan_sidecar_moves(video, target_name):
         (path, path.with_name(new_stem + path.name[len(video.stem) :]))
         for path in sorted(video.parent.iterdir())
         if path.is_file()
-        and path.name.startswith(prefix)
+        and path.name[: len(prefix)].casefold() == prefix.casefold()
         and path.suffix.lower() in SIDECAR_EXT
         and path.name.lower() != "movie.nfo"
     ]

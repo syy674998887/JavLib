@@ -43,7 +43,7 @@ def _load_image(path):
             warnings.simplefilter("error", Image.DecompressionBombWarning)
             with Image.open(path) as source:
                 source.load()
-                return ImageOps.exif_transpose(source).copy()
+                return ImageOps.exif_transpose(source)
     except _IMAGE_ERRORS:
         return None
 

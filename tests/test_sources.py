@@ -1,3 +1,5 @@
+import pytest
+
 from javlib.sources import (
     fetch_javdb,
     javdb_find,
@@ -57,6 +59,33 @@ def test_javbus_parser_extracts_fields_and_validates_catalog_number():
         "samples": ["https://img.test/sample.jpg"],
     }
     assert parse_javbus(page.replace("TEST-001\n", "TEST-002\n", 1), "TEST-001") is None
+
+
+@pytest.mark.parametrize("id_markup", ["", '<span class="header">識別碼:</span>&nbsp;'])
+def test_javbus_rejects_missing_or_blank_page_id(id_markup):
+    page = f"""
+    <h3>OTHER-999 Example title</h3>
+    <a class="bigImage" href="/pics/cover.jpg"></a>
+    <div class="col-md-3 info">{id_markup}</div>
+    """
+
+    assert parse_javbus(page, "TEST-001") is None
+
+
+@pytest.mark.parametrize(
+    "heading",
+    [
+        "Example title",
+        "<strong></strong><strong>Example title</strong>",
+        "<strong>&nbsp;</strong><strong>Example title</strong>",
+    ],
+)
+def test_javdb_rejects_missing_or_blank_detail_id(heading):
+    search = '<a href="/v/right"><strong>TEST-001</strong></a>'
+    detail = f'<h2 class="title">{heading}</h2>'
+    fetcher = ScriptedFetcher([(200, search), (200, detail)])
+
+    assert fetch_javdb(fetcher, "TEST-001") is None
 
 
 def test_javdb_search_selects_exact_equivalent_catalog_number():

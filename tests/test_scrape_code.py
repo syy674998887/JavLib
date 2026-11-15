@@ -10,7 +10,7 @@ from javlib import cli, scrape
 
 def run_command(monkeypatch, *arguments):
     monkeypatch.setattr(cli.sys, "argv", ["javlib", "get", *arguments])
-    cli.main()
+    return cli.main()
 
 
 def source_metadata(code):
@@ -106,7 +106,7 @@ def test_code_command_creates_complete_output_without_local_videos(
     monkeypatch.setattr(scrape, "fetch_javbus", fetch_bus)
     monkeypatch.setattr(scrape, "fetch_javdb", lambda *args: None)
 
-    run_command(monkeypatch, "sone00035", "sone_035", "SSIS-001")
+    assert run_command(monkeypatch, "sone00035", "sone_035", "SSIS-001") == 0
 
     assert queried == ["SONE-035", "SSIS-001"]
     assert fetcher.s.calls == 4
@@ -149,7 +149,7 @@ def test_custom_output_skips_completed_titles_and_force_refreshes_only_requested
     monkeypatch.setattr(scrape, "fetch_javdb", lambda *args: None)
     monkeypatch.setattr(scrape, "download_with_alt", lambda *args, **kwargs: False)
 
-    run_command(monkeypatch, "SONE-035", "--output", str(output))
+    assert run_command(monkeypatch, "SONE-035", "--output", str(output)) == 0
     assert queried == []
     assert marker.read_bytes() == b"existing metadata"
 
@@ -158,6 +158,36 @@ def test_custom_output_skips_completed_titles_and_force_refreshes_only_requested
     assert ET.parse(marker).findtext("num") == "SONE-035"
     assert list(unrelated.iterdir()) == []
     assert not (tmp_path / "output").exists()
+
+
+@pytest.mark.parametrize(
+    ("failure", "expected_exit", "continued"),
+    [(None, 1, True), (RuntimeError, 1, True), (KeyboardInterrupt, 130, False)],
+)
+def test_failure_status_and_batch_continuation(
+    monkeypatch, tmp_path, controlled_fetcher, failure, expected_exit, continued
+):
+    fetcher, _, _ = controlled_fetcher([], title_delay=0)
+    monkeypatch.setattr(cli, "Fetcher", lambda **kwargs: fetcher)
+
+    def fetch_bus(current_fetcher, code):
+        if code == "TEST-001":
+            if failure:
+                raise failure("simulated failure")
+            return None
+        return source_metadata(code)
+
+    monkeypatch.setattr(scrape, "fetch_javbus", fetch_bus)
+    monkeypatch.setattr(scrape, "fetch_javdb", lambda *args: None)
+    monkeypatch.setattr(scrape, "download_with_alt", lambda *args, **kwargs: False)
+
+    result = run_command(
+        monkeypatch, "TEST-001", "TEST-002", "--output", str(tmp_path)
+    )
+
+    assert result == expected_exit
+    assert not (tmp_path / "TEST-001" / "movie.nfo").exists()
+    assert (tmp_path / "TEST-002" / "movie.nfo").exists() is continued
 
 
 @pytest.mark.parametrize("occupied_root", [True, False])

@@ -82,7 +82,7 @@ class Fetcher:
 
     def _slow_down(self, bucket):
         old = self._delay_of(bucket)
-        self._delay[bucket] = min(old * self.SLOWDOWN, self.DELAY_CAP)
+        self._delay[bucket] = max(old, min(old * self.SLOWDOWN, self.DELAY_CAP))
         if self.verbose and self._delay[bucket] > old:
             print(
                 f"      · {bucket} base interval {old:.1f}s → {self._delay[bucket]:.1f}s",

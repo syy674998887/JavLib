@@ -114,7 +114,9 @@ These options apply to both `scrape` and `get`:
 
 Delay values must be finite and non-negative. Zero disables only the corresponding base interval; retry backoff may still wait.
 
-HTTP 408, 429, 500, 502, 503, 504 and network exceptions are retried for at most five attempts. Backoff starts at 10 seconds, doubles, and caps at 300 seconds; a numeric `Retry-After` on 429 takes precedence. Every 429 or 503 multiplies the affected nonzero host/request-type base interval by 1.5, capped at 30 seconds. Other 4xx responses are not retried.
+HTTP 408, 429, 500, 502, 503, 504 and network exceptions are retried for at most five attempts. Backoff starts at 10 seconds, doubles, and caps at 300 seconds; a numeric `Retry-After` on 429 takes precedence. Every 429 or 503 multiplies the affected nonzero host/request-type base interval by 1.5, capped at 30 seconds; user-configured intervals above this cap are preserved. Other 4xx responses are not retried.
+
+`scrape` and `get` exit with `0` when all titles succeed or are skipped, `1` if any title fails, and `130` when interrupted. A failed title does not stop later titles in the batch.
 
 ### Export by catalog number
 
@@ -176,7 +178,7 @@ SONE-035/
 | `poster.jpg` | Portrait poster |
 | `Samples/` | Page stills |
 
-After artwork and filename-matched NFO files are complete, `movie.nfo` is written last and atomically. A folder without it after an interrupted run is processed again on the next run.
+After artwork processing and filename-matched NFO writes, `movie.nfo` is written last and atomically. Unavailable images do not prevent metadata output; use `--force` to retry them. A folder without `movie.nfo` after an interrupted run is processed again on the next run.
 
 ---
 
@@ -186,7 +188,7 @@ Metadata comes from [JavBus](https://www.javbus.com) and [JavDB](https://javdb.c
 
 ### Source validation
 
-A source result is accepted only when its reported catalog number matches the locally normalized number. For ordinary letter-and-number catalog numbers, comparison is case-insensitive, ignores separators, and ignores leading zeros in the numeric part; for example, `IPVR-256` and `ipvr_0256` are equivalent. If neither source has a valid result or processing raises an error, the folder is reported as failed.
+A source result is accepted only when a catalog number parsed from its detail page matches the locally normalized number. Missing or blank page IDs are rejected. For ordinary letter-and-number catalog numbers, comparison is case-insensitive, ignores separators, and ignores leading zeros in the numeric part; for example, `IPVR-256` and `ipvr_0256` are equivalent. If neither source has a valid result or processing raises an error, the folder is reported as failed.
 
 ### Field merging
 
@@ -215,7 +217,9 @@ Folder and video workflows use independent rollback journals. Each rename action
 
 Journals are stored by default in the media-library root (`folder_rename_log.json`, `video_rename_log.json`), so they travel with the library: macOS, Windows, and Linux may mount the same share under different paths, and a rename made on one computer can be rolled back on another. A journal kept outside the library with `--journal` stays bound to the media-library path it was written for. Earlier versions wrote journals to the working directory; move them into the media-library root to keep rolling them back.
 
-A video, its matching subtitles (including language-tagged ones such as `SONE-035.chs.srt`), and filename-matched NFO are handled as one group; folder-level `movie.nfo` is not renamed. If any target is occupied, the whole group is skipped. Rollback never overwrites an existing file.
+A video, its matching subtitles (including language-tagged ones such as `SONE-035.chs.srt`), and filename-matched NFO are handled as one group; sidecar name-prefix matching ignores case, and folder-level `movie.nfo` is not renamed. If any target is occupied, the whole group is skipped. Rollback never overwrites an existing file.
+
+The rename commands currently normalize `-leak` to `-U`. A later scrape reads the renamed folder as `无码破解`; the original `-leak` spelling produces the `无码流出` tag.
 
 ---
 
@@ -236,7 +240,7 @@ The test suite is fully offline and does not contact live metadata sites.
 
 ### Daily website format checks
 
-After the workflow is merged into `main`, GitHub Actions checks the live sites daily at 08:23 America/New_York and supports manual runs. PR updates run only offline tests; scheduled and manual live jobs run serially.
+The workflow on `main` schedules live website checks daily at 08:23 America/New_York and supports manual runs. PR updates run only offline tests; scheduled and manual live jobs run serially.
 
 `scripts/check_live_sources.py` calls the real adapters for one reference title per source (default `SONE-035`). It checks the ID, title, date, runtime, studio, actors, genres, and cover/still URLs. A normal run makes one JavBus request and two JavDB requests (search and detail), at least five seconds apart on JavDB. It does not download images or scan or write a media library.
 

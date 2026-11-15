@@ -51,9 +51,9 @@ def parse_javbus(page_html, code):
         return _clean(match.group(1)) if match and _clean(match.group(1)) else None
 
     page_id = field("識別碼")
-    if page_id and not _same_code(page_id, code):
+    if not page_id or not _same_code(page_id, code):
         return None
-    data["dvdid"] = page_id or code
+    data["dvdid"] = page_id
     data["release"] = field("發行日期")
     data["studio"] = field("製作商")
     data["label"] = field("發行商")
@@ -147,9 +147,9 @@ def fetch_javdb(fetcher, code):
         return None
     parts = re.findall(r"<strong[^>]*>(.*?)</strong>", match.group(1), re.S)
     page_id = _clean(parts[0]) if parts else None
-    if page_id and not _same_code(page_id, code):
+    if not page_id or not _same_code(page_id, code):
         return None
-    data["dvdid"] = page_id or code
+    data["dvdid"] = page_id
     data["title"] = _clean(parts[1]) if len(parts) > 1 else code
 
     data["release"] = _javdb_field(page, "日期")

@@ -203,13 +203,14 @@ def test_digit_prefixed_label_is_kept_in_video_names(tmp_path):
     assert [video.name for _, videos in unrelated for video in videos] == ["promo.mp4"]
 
 
-def test_video_group_skips_when_sidecar_target_is_occupied(tmp_path):
+@pytest.mark.parametrize("subtitle_stem", ["hhd800.com@SONE-035", "HHD800.COM@sone-035"])
+def test_video_group_skips_when_sidecar_target_is_occupied(tmp_path, subtitle_stem):
     root = tmp_path / "library"
     folder = root / "SONE-035"
     folder.mkdir(parents=True)
     source = folder / "hhd800.com@SONE-035.mp4"
     source.write_bytes(b"video")
-    source_sidecar = folder / "hhd800.com@SONE-035.srt"
+    source_sidecar = folder / f"{subtitle_stem}.srt"
     source_sidecar.write_bytes(b"source subtitle")
     occupied_sidecar = folder / "SONE-035.srt"
     occupied_sidecar.write_bytes(b"keep me")
@@ -264,13 +265,14 @@ def test_sidecar_plan_keeps_tags_and_respects_name_boundary(tmp_path):
     ]
 
 
-def test_tagged_subtitle_is_renamed_and_rolled_back_with_video(tmp_path):
+@pytest.mark.parametrize("subtitle_stem", ["hhd800.com@SONE-035", "HHD800.COM@sone-035"])
+def test_tagged_subtitle_is_renamed_and_rolled_back_with_video(tmp_path, subtitle_stem):
     root = tmp_path / "library"
     folder = root / "SONE-035"
     folder.mkdir(parents=True)
     video = folder / "hhd800.com@SONE-035.mp4"
     video.write_bytes(b"video")
-    subtitle = folder / "hhd800.com@SONE-035.chs.srt"
+    subtitle = folder / f"{subtitle_stem}.chs.srt"
     subtitle.write_bytes(b"subtitle")
     journal = tmp_path / "video.json"
 
@@ -282,6 +284,7 @@ def test_tagged_subtitle_is_renamed_and_rolled_back_with_video(tmp_path):
     do_undo_videos(root, journal, apply=True)
 
     assert video.exists() and subtitle.exists()
+    assert subtitle.name in {path.name for path in folder.iterdir()}
     assert not renamed_subtitle.exists()
 
 

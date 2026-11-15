@@ -60,6 +60,17 @@ def test_503_retries_and_slows_down(controlled_fetcher):
     assert fetcher._delay_of("x.com:page") == 7.5
 
 
+@pytest.mark.parametrize("status", [429, 503])
+def test_slowdown_preserves_a_user_interval_above_the_cap(controlled_fetcher, status):
+    fetcher, sleeps, _ = controlled_fetcher(
+        [FakeResponse(status), FakeResponse(200)], page_delay=60
+    )
+
+    assert fetcher.get("https://example.test/title") == (200, "ok")
+    assert sum(sleeps) == 60
+    assert fetcher.s.calls == 2
+
+
 @pytest.mark.parametrize("status", [400, 403, 404])
 def test_permanent_client_errors_return_without_retry(controlled_fetcher, status):
     fetcher, sleeps, _ = controlled_fetcher(
