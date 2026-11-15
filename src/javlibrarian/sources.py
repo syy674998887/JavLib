@@ -17,7 +17,7 @@ def _same_code(left, right):
     """Compare catalog numbers without case, separators, or numeric padding."""
 
     def normalize(value):
-        match = re.match(r"^([A-Za-z]+)[-_]?0*(\d+)$", (value or "").strip())
+        match = re.match(r"^(\d*[A-Za-z]+)[-_]?0*(\d+)$", (value or "").strip())
         if match:
             return f"{match.group(1).upper()}-{int(match.group(2))}"
         return (value or "").upper()

@@ -4,12 +4,14 @@ import pytest
 
 from javlibrarian.rename import (
     RenameLog,
+    default_journal,
     do_rename_folders,
     do_rename_videos,
     do_undo_folders,
     do_undo_videos,
     plan_renames,
     plan_sidecar_moves,
+    plan_video_renames,
 )
 
 
@@ -113,6 +115,43 @@ def test_corrupt_or_foreign_journal_is_rejected_before_rename(tmp_path):
     assert folder.exists()
 
 
+def test_library_journal_works_from_any_mount_path(tmp_path):
+    root = tmp_path / "library"
+    first = root / "hhd800.com@SONE-037"
+    second = root / "hhd800.com@SONE-038"
+    first.mkdir(parents=True)
+    second.mkdir()
+    journal = default_journal(root, "folder_rename_log.json")
+
+    do_rename_folders([first], journal, apply=True)
+    # Pretend another computer wrote it, e.g. macOS mounting the share under /Volumes.
+    payload = json.loads(journal.read_text(encoding="utf-8"))
+    payload["root"] = "/Volumes/personal_folder/AV/JAV"
+    journal.write_text(json.dumps(payload), encoding="utf-8")
+
+    do_rename_folders([second], journal, apply=True)
+    assert len(json.loads(journal.read_text(encoding="utf-8"))["batches"]) == 2
+
+    do_undo_folders(root, journal, apply=True)
+    do_undo_folders(root, journal, apply=True)
+
+    assert first.is_dir() and second.is_dir()
+    assert not (root / "SONE-037").exists() and not (root / "SONE-038").exists()
+    assert not journal.exists()
+
+
+def test_missing_library_journal_points_to_older_working_directory_copy(
+    tmp_path, monkeypatch
+):
+    root = tmp_path / "library"
+    root.mkdir()
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "folder_rename_log.json").write_text("{}", encoding="utf-8")
+
+    with pytest.raises(SystemExit, match="Older versions"):
+        do_undo_folders(root, default_journal(root, "folder_rename_log.json"))
+
+
 def test_journal_prewrite_failure_stops_before_rename(tmp_path):
     root = tmp_path / "library"
     folder = root / "abc-001"
@@ -145,6 +184,23 @@ def test_folder_plan_reports_normalized_case_real_and_collisions(tmp_path):
     duplicate = tmp_path / "sone-035"
     _, collisions = plan_renames([folders[0], duplicate])
     assert collisions == {"sone-035": ["SONE-035", "sone-035"]}
+
+
+def test_digit_prefixed_label_is_kept_in_video_names(tmp_path):
+    folder = tmp_path / "3dsvr-1823"
+    folder.mkdir()
+    for name in (
+        "hkbisi.com@13dsvr01823_1_8k.mp4",
+        "hkbisi.com@13dsvr01823_2_8k.mp4",
+        "promo.mp4",
+    ):
+        (folder / name).write_bytes(b"video")
+
+    plan, duplicates, unrelated = plan_video_renames([folder])
+
+    assert [target for _, _, target in plan] == ["3DSVR-1823-1.mp4", "3DSVR-1823-2.mp4"]
+    assert duplicates == []
+    assert [video.name for _, videos in unrelated for video in videos] == ["promo.mp4"]
 
 
 def test_video_group_skips_when_sidecar_target_is_occupied(tmp_path):

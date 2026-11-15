@@ -12,8 +12,9 @@ SITE_PREFIX = re.compile(
 )
 LEAD_BRACKET = re.compile(r"^\s*[\[\(]([^\]\)]*)[\]\)]\s*")
 CONTENT_ID = re.compile(r"^([a-z]{2,7})(\d{4,6})$", re.I)
-STD_ID = re.compile(r"^([A-Za-z]{2,7})[-_](\d{2,6})$")
-ANY_ID = re.compile(r"([A-Za-z]{2,7})[-_](\d{2,6})")
+# Labels may start with digits, e.g. 3DSVR (SOD VR) or 300MIUM (MGS amateur).
+STD_ID = re.compile(r"^(\d{0,3}[A-Za-z]{2,7})[-_](\d{2,6})$")
+ANY_ID = re.compile(r"((?<![A-Za-z0-9])\d{1,3}[A-Za-z]{2,7}|[A-Za-z]{2,7})[-_](\d{2,6})")
 FC2 = re.compile(r"FC2[-_]?(?:PPV[-_]?)?(\d{5,8})", re.I)
 
 # DMM content IDs zero-pad numbers to five digits (sone00035); catalog

@@ -61,7 +61,7 @@ Requires Python 3.11+. Commands are the same on macOS, Windows, and Linux.
     └── FC2-PPV-1234567.mp4
 ```
 
-Catalog-number normalization affects only queries and NFO output. Folder semantics such as `-C`, `-U`, `-UC`, and `-leak` become NFO tags; `scrape` does not rename folders or videos.
+Catalog-number normalization affects only queries and NFO output. Folder semantics such as `-C`, `-U`, `-UC`, and `-leak` become NFO tags; `scrape` does not rename folders or videos. Labels that start with digits keep them, for example `3DSVR-1823` and `300MIUM-001`.
 
 Only video files directly inside these subdirectories are recognized. Extensions are case-insensitive:
 
@@ -118,7 +118,7 @@ HTTP 408, 429, 500, 502, 503, 504 and network exceptions are retried for at most
 | Option | Commands | Purpose |
 | --- | --- | --- |
 | `--apply` | Both `rename-*` and both `undo-*` commands | Execute the currently displayed rename or rollback plan |
-| `--journal PATH` | Both `rename-*` and the corresponding `undo-*` command | Set the rollback journal; rollback uses the same file written by the rename command |
+| `--journal PATH` | Both `rename-*` and the corresponding `undo-*` command | Set the rollback journal; defaults to the media-library root; rollback of a custom path must use the same file |
 
 Each `undo-*` invocation handles only the latest batch in its journal; run it again to continue with the preceding batch.
 
@@ -190,7 +190,9 @@ A failed download, an undecodable image, or an image with a short edge below 200
 
 ## Folder and video renaming
 
-Folder and video workflows use independent rollback journals. Each rename action is written atomically to its journal before the filesystem is touched. Rollback verifies the media-library root and distinguishes completed, untouched, and partially completed entries.
+Folder and video workflows use independent rollback journals. Each rename action is written atomically to its journal before the filesystem is touched. Rollback distinguishes completed, untouched, and partially completed entries.
+
+Journals are stored by default in the media-library root (`folder_rename_log.json`, `video_rename_log.json`), so they travel with the library: macOS, Windows, and Linux may mount the same share under different paths, and a rename made on one computer can be rolled back on another. A journal kept outside the library with `--journal` stays bound to the media-library path it was written for. Earlier versions wrote journals to the working directory; move them into the media-library root to keep rolling them back.
 
 A video, its matching subtitles (including language-tagged ones such as `SONE-035.chs.srt`), and filename-matched NFO are handled as one group; folder-level `movie.nfo` is not renamed. If any target is occupied, the whole group is skipped. Rollback never overwrites an existing file.
 
@@ -199,7 +201,7 @@ A video, its matching subtitles (including language-tagged ones such as `SONE-03
 ## Privacy
 
 - Scraping sends catalog-number queries to JavBus and JavDB and downloads images referenced by their pages.
-- Rename journals contain local paths and media filenames. The default journal paths are gitignored; protect custom paths separately.
+- Rename journals contain library paths and media filenames. By default they live in the media-library root, not in the project directory; protect custom paths separately.
 
 ---
 

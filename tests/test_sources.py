@@ -70,6 +70,16 @@ def test_javdb_search_selects_exact_equivalent_catalog_number():
     assert fetcher.urls == ["https://javdb.com/search?q=TEST-001&f=all"]
 
 
+def test_javdb_search_keeps_digit_prefixed_label_distinct():
+    search = """
+    <a href="/v/wrong"><strong>DSVR-1823</strong></a>
+    <a href="/v/right"><strong>3dsvr_01823</strong></a>
+    """
+    fetcher = ScriptedFetcher([(200, search)])
+
+    assert javdb_find(fetcher, "3DSVR-1823") == "/v/right"
+
+
 def test_javdb_fetch_parses_detail_page():
     search = '<a href="/v/right"><strong>TEST-001</strong></a>'
     detail = """

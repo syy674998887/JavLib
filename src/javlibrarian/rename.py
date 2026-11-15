@@ -17,12 +17,20 @@ from .filesystem import (
 )
 
 
+def default_journal(root, filename):
+    """Return the journal path kept in the root of the media library it records."""
+    return Path(root).expanduser() / filename
+
+
 class RenameLog:
     """A root-bound, batch-oriented, write-ahead rename journal."""
 
     def __init__(self, path, root):
         self.path = Path(path)
         self.root = str(Path(root).resolve())
+        # A journal stored inside the library travels with it, so it stays valid when
+        # macOS, Windows, and Linux mount the same share under different paths.
+        self.inside_root = self.path.resolve().is_relative_to(self.root)
         self.data = {"root": self.root, "batches": []}
         if self.path.exists():
             try:
@@ -43,7 +51,7 @@ class RenameLog:
         self.batch = None
 
     def root_matches(self):
-        return self.data.get("root") == self.root
+        return self.inside_root or self.data.get("root") == self.root
 
     def open_batch(self):
         self.batch = {"time": time.strftime("%Y-%m-%d %H:%M:%S"), "entries": []}
@@ -83,6 +91,13 @@ def load_log_for_undo(path, root):
     """Load and validate a journal, returning it and its latest batch index."""
     journal_path = Path(path)
     if not journal_path.exists():
+        legacy = Path(journal_path.name)
+        if journal_path.parent == Path(root) and legacy.exists():
+            sys.exit(
+                f"Rename journal not found: {path}\n"
+                f"Older versions kept journals in the working directory: {legacy.resolve()}\n"
+                f"Move it into {journal_path.parent} to undo it from any computer."
+            )
         sys.exit(f"Rename journal not found: {path}")
     log = RenameLog(path, root)
     if not log.batches():
@@ -380,7 +395,7 @@ def classify_videos(folder):
         key=lambda path: path.name,
     )
     code, _ = normalize(folder.name)
-    prefix_match = re.match(r"^([A-Za-z]+)", code) if code else None
+    prefix_match = re.match(r"^\d*([A-Za-z]+)", code) if code else None
     prefix = prefix_match.group(1).lower() if prefix_match else ""
 
     related = []

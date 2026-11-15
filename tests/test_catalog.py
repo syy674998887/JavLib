@@ -17,6 +17,10 @@ from javlibrarian.catalog import list_folders, normalize, standard_name
         ("sone00035", ("SONE-035", [])),
         ("[LD-024] title", ("LD-024", [])),
         ("hhd800.com@SSIS-001", ("SSIS-001", [])),
+        ("3dsvr-1823", ("3DSVR-1823", [])),
+        ("hhd800.com@300MIUM-001-C", ("300MIUM-001", ["中文字幕"])),
+        ("[259LUXU-1234] title", ("259LUXU-1234", [])),
+        ("20240615SONE-035", ("SONE-035", [])),
         ("SONE-267.[4K]@R", ("SONE-267", [])),
         ("SIVR-315 8K Konan Koyoi", ("SIVR-315", [])),
         ("FC2PPV1234567", ("FC2-PPV-1234567", [])),
@@ -33,6 +37,7 @@ def test_normalize_catalog_numbers(folder_name, expected):
     [
         ("ipvr00256-C", "IPVR-256-C"),
         ("ssis00001-C", "SSIS-001-C"),
+        ("3dsvr-1823", "3DSVR-1823"),
         ("SONE-035-UC", "SONE-035-UC"),
         ("SONE-035-leak", "SONE-035-U"),
         ("not-a-code", None),

@@ -14,6 +14,7 @@ from .fetcher import (
     Fetcher,
 )
 from .rename import (
+    default_journal,
     do_rename_folders,
     do_rename_videos,
     do_undo_folders,
@@ -91,9 +92,10 @@ def build_parser():
         command_parser.add_argument(
             "--journal",
             metavar="PATH",
-            default=filename,
-            help=f"rollback journal (default {filename}; reuse the same path for undo)",
+            help=f"rollback journal (default <media-root>/{filename}, "
+            "usable from any computer; reuse a custom path for undo)",
         )
+        command_parser.set_defaults(journal_name=filename)
 
     scrape = command("scrape", "fetch metadata and write NFO/artwork")
     add_root(scrape)
@@ -195,6 +197,8 @@ def parse_cli_args(argv=None):
     args = parser.parse_args(argv)
     if not args.dir:
         parser.error(f"specify the media root with --dir or set {DIR_ENV}")
+    if "journal" in vars(args) and args.journal is None:
+        args.journal = default_journal(args.dir, args.journal_name)
     return args
 
 

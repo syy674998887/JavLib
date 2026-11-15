@@ -1,6 +1,7 @@
 import argparse
 import io
 from contextlib import redirect_stderr
+from pathlib import Path
 
 import pytest
 
@@ -154,10 +155,14 @@ def test_negative_counts_and_invalid_delays_are_rejected(argv):
         ("undo-videos", "video_rename_log.json"),
     ],
 )
-def test_default_journal_is_a_relative_working_directory_path(command, expected):
+def test_default_journal_lives_inside_the_media_root(command, expected):
     parsed = cli_parse(command)
 
-    assert parsed.journal == expected
+    assert Path(parsed.journal) == Path("/tmp", expected)
+
+
+def test_explicit_journal_path_is_kept():
+    assert cli_parse("undo-videos", "--journal", "x.json").journal == "x.json"
 
 
 def test_media_root_can_come_from_environment(monkeypatch):
