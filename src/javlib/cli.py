@@ -24,7 +24,6 @@ from .scrape import do_inspect, do_scrape
 
 
 DIR_ENV = "JAVLIB_DIR"
-LEGACY_DIR_ENV = "JAVLIBRARIAN_DIR"
 
 
 def catalog_number(value):
@@ -79,7 +78,7 @@ def build_parser():
         command_parser.add_argument(
             "--dir",
             metavar="PATH",
-            default=os.environ.get(DIR_ENV) or os.environ.get(LEGACY_DIR_ENV),
+            default=os.environ.get(DIR_ENV),
             help=f"media-library root (overrides {DIR_ENV})",
         )
 

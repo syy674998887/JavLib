@@ -172,16 +172,8 @@ def test_media_root_can_come_from_environment(monkeypatch):
     assert parse_cli_args(["inspect"]).dir == "/media/JAV"
 
 
-def test_legacy_media_root_environment_still_works(monkeypatch):
-    monkeypatch.delenv("JAVLIB_DIR", raising=False)
-    monkeypatch.setenv("JAVLIBRARIAN_DIR", "/media/legacy")
-
-    assert parse_cli_args(["inspect"]).dir == "/media/legacy"
-
-
-def test_media_root_priority_is_cli_then_new_then_legacy_environment(monkeypatch):
+def test_media_root_priority_is_cli_then_environment(monkeypatch):
     monkeypatch.setenv("JAVLIB_DIR", "/media/new")
-    monkeypatch.setenv("JAVLIBRARIAN_DIR", "/media/legacy")
 
     assert parse_cli_args(["inspect"]).dir == "/media/new"
     assert parse_cli_args(["inspect", "--dir", "/media/explicit"]).dir == "/media/explicit"

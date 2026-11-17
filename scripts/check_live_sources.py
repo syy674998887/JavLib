@@ -28,7 +28,7 @@ class ProbeFetcher(Fetcher):
     TRANSIENT = {0, 408, 500, 502, 503, 504}
 
     def __init__(self):
-        super().__init__(page_delay=5.0, image_delay=0.0, title_delay=0.0)
+        super().__init__(image_delay=0.0, title_delay=0.0)
         self.history = []
         self.response = None
         self.s.hooks["response"].append(self._remember_response)

@@ -1,272 +1,178 @@
-<h1 align="center">JavLib</h1>
+# JavLib
 
-<p align="center">
-  <b>A lightweight, safety-first NAS librarian for JAV collections.</b>
-</p>
+**English** · [简体中文](README.zh-CN.md)
 
-<p align="center">
-  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white" alt="Python 3.11+"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="Apache 2.0"></a>
-  <a href="https://docs.astral.sh/uv/"><img src="https://img.shields.io/badge/uv-lockfile-DE5FE9" alt="uv"></a>
-</p>
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/)
+[![Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+[![uv](https://img.shields.io/badge/uv-lockfile-DE5FE9)](https://docs.astral.sh/uv/)
 
-<p align="center">
-  <b>English</b> · <a href="README.zh-CN.md">简体中文</a>
-</p>
+JavLib is a command-line tool for JAV media libraries. It scrapes metadata from catalog numbers or local folders, generates NFO files and artwork, and provides rename and rollback commands.
 
-JavLib organizes JAV media libraries on NAS systems: it recognizes catalog numbers from folder names or accepts them directly, queries JavBus and JavDB, adds available synopses from Jav321 by default, and generates NFO files and artwork for local media centers. UGREEN UGOS reads the filename-matched NFO files (with “prefer local metadata” enabled), while Emby, Jellyfin, and Kodi use the folder-level `movie.nfo`.
-
----
-
-## Table of contents
-
-- [Installation](#installation)
-- [Library layout](#library-layout)
-- [Command reference](#command-reference)
-- [Quick start](#quick-start)
-- [Generated files](#generated-files)
-- [Metadata sources and merge rules](#metadata-sources-and-merge-rules)
-- [Folder and video renaming](#folder-and-video-renaming)
-- [Privacy](#privacy)
+- [Installation and quick start](#installation-and-quick-start)
+- [Commands and options](#commands-and-options)
+- [Directories and output](#directories-and-output)
+- [Metadata sources](#metadata-sources)
+- [Renaming and rollback](#renaming-and-rollback)
 - [Testing](#testing)
-- [Known limitations](#known-limitations)
 - [License](#license)
 
----
+## Installation and quick start
 
-## Installation
+Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/). Supports Windows, macOS, and Linux.
 
 ```bash
 git clone https://github.com/syy674998887/JavLib.git
 cd JavLib
 uv sync
-uv run javlib --help
 ```
-
-Requires Python 3.11+. Commands are the same on macOS, Windows, and Linux.
-
----
-
-## Library layout
-
-`--dir` sets the media-library root. JavLib scans only its immediate subdirectories, recognizes catalog numbers from their names, and does not recurse further. Hidden directories are ignored. `inspect` reports names with no recognized catalog number; `scrape` and both `rename-*` commands skip them.
-
-```text
-/path/to/JAV/
-├── SONE-035/
-│   └── SONE-035.mp4
-├── IPVR-256-C/
-│   └── IPVR-256-C.mkv
-└── FC2-PPV-1234567/
-    └── FC2-PPV-1234567.mp4
-```
-
-Catalog-number normalization affects only queries and NFO output. Folder semantics such as `-C`, `-U`, `-UC`, and `-leak` become NFO tags; `scrape` does not rename folders or videos. Labels that start with digits keep them, for example `3DSVR-1823` and `300MIUM-001`.
-
-Only video files directly inside these subdirectories are recognized. Extensions are case-insensitive:
-
-`.mp4` `.mkv` `.avi` `.wmv` `.mov` `.m4v` `.ts` `.iso` `.rmvb` `.flv`
-
-Video filenames do not need to match their directory name. Multiple supported videos in one directory share its metadata and each receive a filename-matched NFO.
-
----
-
-## Command reference
-
-```bash
-uv run javlib COMMAND [OPTIONS]
-```
-
-| Command | Purpose |
-| --- | --- |
-| `scrape` | Query metadata and generate NFO files and artwork |
-| `get CODE [CODE ...]` | Scrape catalog numbers into `output/` without local videos |
-| `inspect` | Show the query ID and tags recognized from each folder name |
-| `rename-folders` | Normalize immediate-subdirectory names |
-| `rename-videos` | Clean video and matching sidecar filenames |
-| `undo-folders` | Roll back the latest batch of folder renames |
-| `undo-videos` | Roll back the latest batch of video renames |
-
-> [!IMPORTANT]
-> `inspect` does not use the network or write to disk. `scrape` and `get` use the network and write NFO files and artwork, but never delete or rewrite videos. The two rename and two rollback commands preview by default and require `--apply` to execute.
-
-### Directory and selection
-
-| Option | Commands | Purpose |
-| --- | --- | --- |
-| `--dir PATH` | All except `get` | Media-library root; falls back to `JAVLIB_DIR` when omitted |
-| `--limit N` | `scrape`, `inspect`, both `rename-*` commands | After `--only` filtering, process at most the first N folders in case-insensitive name order; `0` (default) means all |
-| `--only NAME` | `scrape`, `inspect`, both `rename-*` commands | Process only the immediate folder for a specified catalog number; `NAME` must be the complete, case-sensitive folder name and may be repeated |
-
-The previous `JAVLIBRARIAN_DIR` variable remains supported. The media-root priority is `--dir`, then `JAVLIB_DIR`, then `JAVLIBRARIAN_DIR`.
-
-### Scraping
-
-These options apply to both `scrape` and `get`:
-
-| Option | Purpose |
-| --- | --- |
-| `--force` | Reprocess folders with an existing `movie.nfo` and replace same-named NFO/artwork successfully generated by this run |
-| `--page-delay SECONDS` | Base interval between consecutive page requests to the same metadata source; default `5.0` seconds. Each source is timed separately |
-| `--image-delay SECONDS` | Base interval between consecutive requests to the same image host; default `2.0` seconds |
-| `--delay SECONDS` | Interval between titles scraped over the network; default `10.0` seconds |
-| `-v`, `--verbose` | Show request waits, inter-title waits, adaptive slowdown, and retries |
-
-Delay values must be finite and non-negative. Zero disables only the corresponding base interval; retry backoff may still wait.
-
-HTTP 408, 429, 500, 502, 503, 504 and network exceptions are retried for at most five attempts. Backoff starts at 10 seconds, doubles, and caps at 300 seconds; a numeric `Retry-After` on 429 takes precedence. Every 429 or 503 multiplies the affected nonzero host/request-type base interval by 1.5, capped at 30 seconds; user-configured intervals above this cap are preserved. Other 4xx responses are not retried.
-
-`scrape` and `get` exit with `0` when all titles succeed or are skipped, `1` if any title fails, and `130` when interrupted. A failed title does not stop later titles in the batch.
 
 ### Export by catalog number
 
-`get` accepts one or more standalone catalog numbers, such as `SONE-035`, `3DSVR-1823`, and `FC2-PPV-1234567`. Lowercase, underscore separators, and DMM content IDs such as `sone00035` are also accepted. Duplicate normalized numbers are processed once.
+Specify catalog numbers and an output directory; no local videos are required:
 
-It automatically creates `output/{normalized-code}/` under the current working directory, without requiring videos or existing folders. Use `-o PATH` or `--output PATH` to change the destination root; this command does not use `JAVLIB_DIR`. The default project `output/` is gitignored.
+```bash
+uv run javlib get SONE-035 IPVR-256 -o "/path/to/output"
+```
 
-Each title receives `movie.nfo`, plus successfully generated `fanart.jpg`, `poster.jpg`, and `Samples/` stills. Existing `movie.nfo` files cause a skip; add `--force` to re-scrape.
+### Scrape a local library
 
-### Rename and rollback
-
-| Option | Commands | Purpose |
-| --- | --- | --- |
-| `--apply` | Both `rename-*` and both `undo-*` commands | Execute the currently displayed rename or rollback plan |
-| `--journal PATH` | Both `rename-*` and the corresponding `undo-*` command | Set the rollback journal; defaults to the media-library root; rollback of a custom path must use the same file |
-
-Each `undo-*` invocation handles only the latest batch in its journal; run it again to continue with the preceding batch.
-
----
-
-## Quick start
+Check catalog-number recognition before scraping:
 
 ```bash
 uv run javlib inspect --dir "/path/to/JAV"
 uv run javlib scrape --dir "/path/to/JAV"
 ```
 
-Export directly by catalog number without local videos:
+## Commands and options
 
-```bash
-uv run javlib get SONE-035
-uv run javlib get SONE-035 IPVR-256
-uv run javlib get SONE-035 --output "/path/to/export" --force
-```
+Usage: `uv run javlib COMMAND [OPTIONS]`. For command help, run `uv run javlib COMMAND --help`.
 
-The first command writes to `output/SONE-035/` by default.
+| Command | Purpose |
+| --- | --- |
+| `get CODE [CODE ...]` | Export metadata and artwork by catalog number |
+| `scrape` | Scrape a local media library |
+| `inspect` | Check folder IDs and tags; read-only, no network requests |
+| `rename-folders` | Normalize folder names |
+| `rename-videos` | Clean video and matching sidecar filenames |
+| `undo-folders` | Roll back folder renames |
+| `undo-videos` | Roll back video renames |
 
----
+`scrape` and `get` use the network and write metadata and artwork. They do not alter video contents or names.
 
-## Generated files
+### Directories and selection
+
+| Option | Commands | Default | Description |
+| --- | --- | --- | --- |
+| `--dir PATH` | All except `get` | `JAVLIB_DIR`, otherwise required | Media-library root; an explicit option takes precedence |
+| `-o, --output PATH` | `get` | `./output` | Export root; does not read `JAVLIB_DIR` |
+| `--only NAME` | `scrape`, `inspect`, `rename-*` | All folders | Match a complete, case-sensitive folder name; repeatable |
+| `--limit N` | `scrape`, `inspect`, `rename-*` | `0` (all) | Process up to N filtered folders in case-insensitive name order |
+
+`get` accepts multiple catalog numbers, such as `SONE-035`, `3DSVR-1823`, and `FC2-PPV-1234567`. Lowercase, underscores, and DMM IDs such as `sone00035` are accepted; normalized duplicates are processed once.
+
+### Scraping
+
+These options apply to `scrape` and `get`:
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `--force` | Off | Reprocess folders with `movie.nfo`, replacing same-named NFO/artwork successfully generated by this run |
+| `--page-delay SECONDS` | `10` seconds | Base interval between page requests to the same site |
+| `--image-delay SECONDS` | `2` seconds | Base interval between requests to the same image host |
+| `--delay SECONDS` | `10` seconds | Interval from completing one title to starting network requests for the next |
+| `-v, --verbose` | Off | Show waits, adaptive slowdown, and retries |
+
+Page and image requests are timed separately per host and wait only for the remaining interval. Delays must be finite and non-negative. Zero disables the corresponding base interval; retries may still wait.
+
+Requests run serially. Primary metadata and image requests make at most **five attempts, including the first**, on retryable failures. Jav321 plot requests make one attempt.
+
+Exit codes: `0` for success or skips, `1` if any title fails, and `130` on interruption. A failed title does not stop the batch.
+
+## Directories and output
+
+Local scraping and renaming process only immediate subdirectories of the library root, using folder names to identify titles. Hidden folders and unrecognized IDs are skipped; `inspect` reports the latter.
 
 ```text
-SONE-035/
-├── SONE-035.mp4
-├── SONE-035.nfo
-├── movie.nfo
-├── fanart.jpg
-├── poster.jpg
-└── Samples/
-    ├── sample1.jpg
-    └── ...
+/path/to/JAV/
+├── SONE-035/
+│   └── video.mp4
+└── IPVR-256-C/
+    └── IPVR-256-C.mkv
 ```
 
-| File | Role |
+Videos in the same folder share its metadata; their filenames need not match the folder name. Folder suffixes `-C`, `-U`, `-UC`, and `-leak` become NFO tags.
+
+Supported extensions, case-insensitive: `.mp4`, `.mkv`, `.avi`, `.wmv`, `.mov`, `.m4v`, `.ts`, `.iso`, `.rmvb`, `.flv`.
+
+`scrape` writes into the original title folder. `get` creates `<output-root>/<normalized-code>/`; without videos, only metadata and artwork are generated.
+
+| File | Purpose |
 | --- | --- |
-| `{video}.nfo` | Media centers that read filename-matched NFO files, such as UGREEN UGOS |
-| `movie.nfo` | Folder-level NFO for Emby, Jellyfin, and Kodi; also the scrape-completion marker |
+| `{video}.nfo` | Generated when a video exists; enable “prefer local metadata” in UGREEN UGOS |
+| `movie.nfo` | Folder-level metadata for Emby / Jellyfin / Kodi; also marks scraping as complete |
 | `fanart.jpg` | Landscape cover |
 | `poster.jpg` | Portrait poster |
-| `Samples/` | Page stills |
+| `Samples/` | Stills |
 
-After artwork processing and filename-matched NFO writes, `movie.nfo` is written last and atomically. Unavailable images do not prevent metadata output; use `--force` to retry them. A folder without `movie.nfo` after an interrupted run is processed again on the next run.
+Folders with `movie.nfo` are skipped by default. After an interruption, folders without it are processed again. Image download or validation failures preserve existing artwork and do not prevent NFO output.
 
----
+Standard posters are cropped from the cover. VR titles prefer a suitable portrait still, falling back to cover cropping.
 
-## Metadata sources and merge rules
+## Metadata sources
 
-Metadata comes from [JavBus](https://www.javbus.com) and [JavDB](https://javdb.com). A single valid source is used directly. When both match, JavBus is the primary record and JavDB supplies missing fields and alternate artwork.
-
-Both `scrape` and `get` also query [Jav321](https://www.jav321.com) by default to fill the NFO `<plot>` field. This source supplies only the synopsis: it does not replace titles, actors, or artwork, and is queried only after a primary source matches. A missing plot, rejected ID, or failed request leaves the normal metadata output intact. The plot request uses one attempt. Existing `movie.nfo` files still cause a skip; use `--force` to refresh them with a synopsis.
-
-### Source validation
-
-A source result is accepted only when a catalog number parsed from its detail page matches the locally normalized number. Missing or blank page IDs are rejected. For ordinary letter-and-number catalog numbers, comparison is case-insensitive, ignores separators, and ignores leading zeros in the numeric part; for example, `IPVR-256` and `ipvr_0256` are equivalent. If neither source has a valid result or processing raises an error, the folder is reported as failed.
-
-Jav321 must provide one complete matching `品番` and one nonempty synopsis in the same metadata panel. Search text, titles, and URLs are not used as identity substitutes. Numeric prefixes are never dropped: `MIUM-865` cannot validate either `300MIUM-865` or `999MIUM-865`. Pages with incomplete or ambiguous IDs are skipped, even if that means leaving the plot empty.
-
-### Field merging
-
-| Data | Merge rule |
+| Source | Role |
 | --- | --- |
-| Titles | Write the JavBus title as `originaltitle`; use the JavDB title as the display title when it contains no Japanese kana, otherwise keep the primary-record title |
-| Release date, runtime, studio, label, director, series | Keep existing JavBus values and use JavDB only to fill blanks |
-| Genres | Union and deduplicate both lists, preserving JavBus order first |
-| Actors | Use JavBus actors and thumbnails; use the JavDB actress list only when JavBus has no actors |
-| Plot | Use Jav321 after complete catalog-number validation; omit `<plot>` when unavailable |
-| Cover | Use JavBus first and try the JavDB cover if that download fails |
-| Stills | Use JavBus first with same-index JavDB images as alternates; use JavDB when JavBus has no stills |
-| Source marker | Record the primary sources as `javbus`, `javdb`, or `javbus+javdb`; append `+jav321` only when its plot is used |
+| [JavBus](https://www.javbus.com) | Primary metadata and artwork |
+| [JavDB](https://javdb.com) | Supplementary metadata and alternate artwork |
+| [Jav321](https://www.jav321.com) | Plot enrichment enabled by default; written to `<plot>` |
 
-### Artwork and posters
+At least JavBus or JavDB must return a valid match. A single match is used directly; when both match, JavBus values take precedence and JavDB fills blanks. Genres are combined and deduplicated; actors come from JavBus when available. A JavDB title without Japanese kana may become the display title, with the JavBus title retained as the original title.
 
-A failed download, an undecodable image, or an image with a short edge below 200 pixels does not replace an existing file; an alternate source is tried when available. Valid images are written only after temporary-file validation.
+**The detail page must provide a complete, matching catalog number.** For ordinary catalog numbers, comparison ignores case, separators, and leading zeros in the trailing number, while preserving numeric prefixes: `MIUM-865` cannot substitute for `300MIUM-865`. Missing or mismatched IDs, and ambiguous Jav321 results, are rejected.
 
-- Standard titles crop the rightmost 47.5% of the landscape cover into `poster.jpg`.
-- VR titles first use DMM `ps.jpg` as a reference to identify a portrait cover among the stills. Without a usable reference, the first portrait still is selected, then landscape-cover cropping is used as the final fallback.
+Jav321 is queried after a primary match and supplies only the plot. An unavailable plot or failed request does not affect other metadata. Pages without a synopsis or a complete catalog number produce no `<plot>`.
 
----
+Scraping sends catalog-number queries to these sites and requests their referenced images. Parsing depends on site HTML and can fail after page changes or access restrictions.
 
-## Folder and video renaming
+## Renaming and rollback
 
-Folder and video workflows use independent rollback journals. Each rename action is written atomically to its journal before the filesystem is touched. Rollback distinguishes completed, untouched, and partially completed entries.
+Both `rename-*` and both `undo-*` commands support these options:
 
-Journals are stored by default in the media-library root (`folder_rename_log.json`, `video_rename_log.json`), so they travel with the library: macOS, Windows, and Linux may mount the same share under different paths, and a rename made on one computer can be rolled back on another. A journal kept outside the library with `--journal` stays bound to the media-library path it was written for. Earlier versions wrote journals to the working directory; move them into the media-library root to keep rolling them back.
+| Option | Default | Description |
+| --- | --- | --- |
+| `--apply` | Off | Execute a rename or rollback; otherwise preview only |
+| `--journal PATH` | Corresponding journal in the library root | Custom journal path; use the same file for rollback |
 
-A video, its matching subtitles (including language-tagged ones such as `SONE-035.chs.srt`), and filename-matched NFO are handled as one group; sidecar name-prefix matching ignores case, and folder-level `movie.nfo` is not renamed. If any target is occupied, the whole group is skipped. Rollback never overwrites an existing file.
+Preview video renames:
 
-The rename commands currently normalize `-leak` to `-U`. A later scrape reads the renamed folder as `无码破解`; the original `-leak` spelling produces the `无码流出` tag.
+```bash
+uv run javlib rename-videos --dir "/path/to/JAV"
+```
 
----
-
-## Privacy
-
-- Scraping sends catalog-number queries to JavBus and JavDB, queries Jav321 for a synopsis after a primary match, and downloads images referenced by the primary sources.
-- Rename journals contain library paths and media filenames. By default they live in the media-library root, not in the project directory; protect custom paths separately.
-
----
+- Videos, matching subtitles (including language suffixes), and NFO sidecars are renamed as a group. Prefix matching ignores case; `movie.nfo` is excluded. A target conflict skips the group; rollback never overwrites existing files.
+- Folder and video renames use `folder_rename_log.json` and `video_rename_log.json`, respectively. Each applied rollback handles the latest batch; after it succeeds, another invocation can roll back the preceding batch.
+- Journals record paths and filenames and must be retained for rollback. Journals inside the library travel with it; external journals remain bound to the original library path.
+- Renaming converts `-leak` to `-U`: scraping the original name produces the `无码流出` tag, while scraping the renamed folder produces `无码破解`.
 
 ## Testing
+
+Offline tests:
 
 ```bash
 uv run --group test pytest
 ```
 
-The test suite is fully offline and does not contact live metadata sites.
+Live website checks:
 
-### Daily website format checks
+```bash
+uv run python scripts/check_live_sources.py
+```
 
-The workflow on `main` schedules live website checks daily at 08:23 America/New_York and supports manual runs. PR updates run only offline tests; scheduled and manual live jobs run serially.
+GitHub Actions schedules daily checks of all three sites at **08:23 America/New_York**, with manual runs available. PRs run only offline tests. Each source checks `SONE-035` by default, validating the ID and required fields, including the Jav321 plot. No images are downloaded or media-library files written.
 
-`scripts/check_live_sources.py` calls the real adapters for one reference title per source (default `SONE-035`). For JavBus and JavDB it checks the ID, title, date, runtime, studio, actors, genres, and cover/still URLs; for Jav321 it checks the complete ID and synopsis. A normal run makes one JavBus request, two JavDB requests (search and detail) at least five seconds apart, and a Jav321 search POST that normally redirects to the detail page. The redirected response is parsed without fetching that detail page again. It does not download images or scan or write a media library.
+Any non-`PASS` result fails the check. The Actions summary distinguishes parsing failures, access restrictions, network/HTTP errors, and check errors. A single reference title does not cover every page.
 
-- `PASS`: all required reference-title fields parsed successfully.
-- `PARSE_ERROR`: metadata is missing or invalid; review the HTML, adapter, and reference title.
-- `ACCESS_BLOCKED`: a login redirect, verification page, or HTTP 401/403/429; stop without retrying.
-- `NETWORK_ERROR` / `HTTP_ERROR`: a transport or HTTP failure; transient failures are retried at most once.
-- `CHECK_ERROR`: another exception in the check or adapter.
-
-Every non-`PASS` result fails the job and explains the cause in the Actions summary, so an unverified source cannot appear healthy. This detects field regressions in the reference title; it does not cover every title or verify image downloads.
-
-Run locally with `uv run python scripts/check_live_sources.py`. Override `JAVBUS_SMOKE_CODE`, `JAVDB_SMOKE_CODE`, or `JAV321_SMOKE_CODE` only with a known title containing the fields required for that source.
-
----
-
-## Known limitations
-
-- Parsers depend on the current HTML of JavBus, JavDB, and Jav321. Some Jav321 pages have no synopsis or omit part of the catalog number; those pages cannot supply a plot.
-- Requests are serial and conservative; large libraries take time.
-
----
+Override `JAVBUS_SMOKE_CODE`, `JAVDB_SMOKE_CODE`, or `JAV321_SMOKE_CODE` with a known title containing the required fields for that source.
 
 ## License
 

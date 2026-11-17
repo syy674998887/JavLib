@@ -36,7 +36,7 @@ def test_code_command_needs_no_library_and_normalizes_input(monkeypatch):
     assert args.codes == ["SONE-035", "3DSVR-1823", "FC2-PPV-1234567"]
     assert args.output == "output"
     assert not hasattr(args, "dir")
-    assert (args.page_delay, args.image_delay, args.delay) == (5.0, 2.0, 10.0)
+    assert (args.page_delay, args.image_delay, args.delay) == (10.0, 2.0, 10.0)
 
 
 def test_code_command_accepts_custom_output_and_shared_scrape_options():
