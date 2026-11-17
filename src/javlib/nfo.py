@@ -26,6 +26,7 @@ def build_nfo(data, tags, folder_name):
 
     add(root, "title", f"{code} {display_title}".strip())
     add(root, "originaltitle", original_title or display_title)
+    add(root, "plot", data.get("plot"))
     add(root, "sorttitle", code)
     add(root, "num", code)
 

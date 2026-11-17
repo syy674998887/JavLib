@@ -108,13 +108,22 @@ class Fetcher:
 
     def get(self, url, referer=None, binary=False, max_retry=5):
         """Return ``(status_code, text_or_bytes)``; failed bodies are ``None``."""
+        return self._request("GET", url, referer, binary, max_retry)
+
+    def post(self, url, data, referer=None, max_retry=1):
+        """Submit a form with the same throttling; default to one attempt."""
+        return self._request("POST", url, referer, max_retry=max_retry, data=data)
+
+    def _request(self, method, url, referer=None, binary=False, max_retry=5, data=None):
         headers = {"Referer": referer} if referer else {}
         bucket = self.bucket_of(url, binary)
         backoff = self.BACKOFF_START
         for attempt in range(max_retry):
             self._wait(bucket)
             try:
-                response = self.s.get(url, headers=headers, timeout=30)
+                response = self.s.request(
+                    method, url, headers=headers, data=data, timeout=30
+                )
             except requests.exceptions.RequestException as error:
                 if attempt == max_retry - 1:
                     return 0, None

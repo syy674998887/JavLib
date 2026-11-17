@@ -10,6 +10,7 @@ def test_nfo_contains_media_center_fields_and_escapes_text():
         "dvdid": "SONE-035",
         "title": "SONE-035 日本語 & 原題",
         "title_cn": "SONE-035 中文 <标题>",
+        "plot": "あらすじ & 中文 <简介>",
         "release": "2024-02-03",
         "runtime": 123,
         "studio": "Maker",
@@ -29,6 +30,7 @@ def test_nfo_contains_media_center_fields_and_escapes_text():
     assert root.tag == "movie"
     assert root.findtext("title") == "SONE-035 中文 <标题>"
     assert root.findtext("originaltitle") == "日本語 & 原題"
+    assert root.findtext("plot") == "あらすじ & 中文 <简介>"
     assert root.findtext("sorttitle") == "SONE-035"
     assert root.findtext("num") == "SONE-035"
     assert root.findtext("uniqueid") == "SONE-035"
@@ -80,3 +82,4 @@ def test_nfo_omits_empty_optional_fields_and_uses_original_title_fallback():
     assert root.find("year") is None
     assert root.find("runtime") is None
     assert root.find("set") is None
+    assert root.find("plot") is None

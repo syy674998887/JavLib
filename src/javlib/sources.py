@@ -1,11 +1,13 @@
-"""JavBus and JavDB metadata adapters and merge policy."""
+"""JavBus/JavDB metadata, Jav321 plots, and merge policy."""
 
 import html
 import re
+from html.parser import HTMLParser
 
 
 JAVBUS = "https://www.javbus.com"
 JAVDB = "https://javdb.com"
+JAV321 = "https://www.jav321.com"
 KANA = re.compile(r"[぀-ヿ]")
 
 
@@ -201,6 +203,92 @@ def fetch_javdb(fetcher, code):
         [f"{base.group(1)}_l_{number}.jpg" for number in sample_numbers] if base else []
     )
     return data
+
+
+class _Jav321Parser(HTMLParser):
+    """Keep page IDs and direct synopsis text within their own metadata panel."""
+
+    VOID = {
+        "area", "base", "br", "col", "embed", "hr", "img", "input", "link",
+        "meta", "param", "source", "track", "wbr",
+    }
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.stack = []  # Frames: (tag, classes, panel, captured direct text).
+        self.panels = []
+        self.id_parts = None
+
+    def handle_starttag(self, tag, attrs):
+        self.id_parts = None
+        if tag in self.VOID:
+            if tag == "br" and self.stack and self.stack[-1][3] is not None:
+                self.stack[-1][3].append(" ")
+            return
+        classes = set((dict(attrs).get("class") or "").split())
+        panel = self.stack[-1][2] if self.stack else None
+        if tag == "div" and "panel-body" in classes:
+            panel = {"ids": [], "plots": []}
+            self.panels.append(panel)
+        parts = [] if tag == "b" else None
+        if (
+            tag == "div" and "col-md-12" in classes and len(self.stack) >= 2
+            and self.stack[-1][0] == self.stack[-2][0] == "div"
+            and "row" in self.stack[-1][1]
+            and "panel-body" in self.stack[-2][1]
+        ):
+            parts = []
+            panel["plots"].append(parts)
+        self.stack.append((tag, classes, panel, parts))
+
+    def handle_endtag(self, tag):
+        self.id_parts = None
+        for index in range(len(self.stack) - 1, -1, -1):
+            if self.stack[index][0] == tag:
+                _, _, panel, parts = self.stack[index]
+                del self.stack[index:]
+                if (
+                    tag == "b" and panel is not None
+                    and "".join(parts).strip().rstrip(":：") == "品番"
+                ):
+                    self.id_parts = []
+                    panel["ids"].append(self.id_parts)
+                break
+
+    def handle_data(self, text):
+        if self.id_parts is not None:
+            self.id_parts.append(text)
+        if self.stack and self.stack[-1][3] is not None:
+            self.stack[-1][3].append(text)
+
+
+def parse_jav321(page, code):
+    """Accept a synopsis only with an unambiguous, complete matching page ID."""
+    parser = _Jav321Parser()
+    parser.feed(page)
+    parser.close()
+    panels = [panel for panel in parser.panels if panel["ids"]]
+    if len(panels) != 1 or len(panels[0]["ids"]) != 1:
+        return None
+    panel = panels[0]
+    page_id = "".join(panel["ids"][0]).strip().lstrip(":：").strip()
+    if not page_id or not _same_code(page_id, code):
+        return None
+    plots = [" ".join("".join(parts).split()) for parts in panel["plots"]]
+    plots = [plot for plot in plots if plot]
+    if len(plots) != 1:
+        return None
+    return {"source": "jav321", "code": code, "dvdid": page_id, "plot": plots[0]}
+
+
+def fetch_jav321(fetcher, code):
+    # Search redirects to the detail page; reuse that response, with no second GET.
+    status, page = fetcher.post(
+        f"{JAV321}/search", data={"sn": code}, referer=JAV321 + "/", max_retry=1
+    )
+    if status != 200 or not page:
+        return None
+    return parse_jav321(page, code)
 
 
 def merge_sources(bus, db):

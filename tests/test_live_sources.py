@@ -76,9 +76,11 @@ class ScriptedAdapter(requests.adapters.BaseAdapter):
     def __init__(self, responses):
         self.responses = iter(responses)
         self.urls = []
+        self.requests = []
 
     def send(self, request, **kwargs):
         self.urls.append(request.url)
+        self.requests.append(request)
         item = next(self.responses)
         if isinstance(item, Exception):
             raise item
@@ -186,6 +188,7 @@ def test_summary_keeps_failure_category_and_does_not_report_success(
 ):
     monkeypatch.setenv("JAVBUS_SMOKE_CODE", "TEST-001")
     monkeypatch.setenv("JAVDB_SMOKE_CODE", "TEST-001")
+    monkeypatch.setenv("JAV321_SMOKE_CODE", "TEST-001")
     summary = tmp_path / "summary.md"
     monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
     monkeypatch.setattr(
@@ -198,9 +201,54 @@ def test_summary_keeps_failure_category_and_does_not_report_success(
         return dict(metadata, actors=[])
 
     monkeypatch.setattr(check, "fetch_javdb", failing_source)
+    monkeypatch.setattr(
+        check, "fetch_jav321",
+        lambda fetcher, code: {"source": "jav321", "dvdid": code, "plot": "Synopsis"},
+    )
 
     assert check.main() == 1
     output = capsys.readouterr().out
     assert "PASS JavBus" in output
+    assert "PASS Jav321" in output
     assert f"{failure} JavDB" in output
     assert f"| JavDB | TEST-001 | {failure} |" in summary.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    ("page_id", "plot", "expected"),
+    [("TEST-001", "Synopsis", "PASS"), ("TEST-002", "Synopsis", "PARSE_ERROR"),
+     ("TEST-001", " ", "PARSE_ERROR")],
+)
+def test_plot_source_checks_id_and_plot_only(page_id, plot, expected):
+    result, _ = check.check_source(
+        lambda f, c: {"source": "jav321", "dvdid": page_id, "plot": plot},
+        "jav321", "TEST-001", None,
+    )
+    assert result == expected
+
+
+def test_jav321_probe_follows_post_redirect_without_extra_detail_request(monkeypatch):
+    page = '<div class="panel-body"><b>品番:</b> TEST-001<br>' \
+           '<div class="row"><div class="col-md-12">Synopsis</div></div></div>'
+    probe, adapter = probe_with_responses(
+        monkeypatch, [(301, {"Location": "/video/test00001"}, ""), (200, {}, page)]
+    )
+
+    result, _ = check.check_source(check.fetch_jav321, "jav321", "TEST-001", probe)
+
+    assert result == "PASS"
+    assert [request.method for request in adapter.requests] == ["POST", "GET"]
+    assert adapter.requests[0].body == "sn=TEST-001"
+    assert adapter.urls == [
+        "https://www.jav321.com/search", "https://www.jav321.com/video/test00001"
+    ]
+
+
+@pytest.mark.parametrize("status", [403, 429])
+def test_jav321_probe_reports_access_blocks_without_retry(monkeypatch, status):
+    probe, adapter = probe_with_responses(monkeypatch, [(status, {}, "blocked")])
+
+    result, _ = check.check_source(check.fetch_jav321, "jav321", "TEST-001", probe)
+
+    assert result == "ACCESS_BLOCKED"
+    assert len(adapter.urls) == 1

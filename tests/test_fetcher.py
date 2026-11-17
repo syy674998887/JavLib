@@ -175,3 +175,26 @@ def test_inter_title_wait_ignores_local_skips(controlled_fetcher):
     clock[0] += 2
     fetcher.begin_movie()
     assert sleeps == [5.0]
+
+
+def test_post_shares_page_throttling_with_get(controlled_fetcher):
+    fetcher, sleeps, _ = controlled_fetcher([])
+
+    fetcher.get("https://example.test/title")
+    assert fetcher.post("https://example.test/search", {"sn": "TEST-001"}) == (200, "ok")
+    fetcher.post("https://another.test/search", {"sn": "TEST-001"})
+
+    assert sleeps == [5.0]
+
+
+@pytest.mark.parametrize("failure", [requests.Timeout(), 403, 429, 503])
+def test_optional_post_defaults_to_one_attempt(controlled_fetcher, failure):
+    response = failure if isinstance(failure, Exception) else FakeResponse(failure)
+    fetcher, sleeps, _ = controlled_fetcher([response, FakeResponse(200)])
+
+    expected = 0 if isinstance(failure, Exception) else failure
+    assert fetcher.post("https://example.test/search", {"sn": "TEST-001"}) == (
+        expected, None
+    )
+    assert fetcher.s.calls == 1
+    assert sleeps == []

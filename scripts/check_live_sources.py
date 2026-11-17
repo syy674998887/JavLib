@@ -13,7 +13,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from javlib.fetcher import Fetcher
-from javlib.sources import _same_code, fetch_javbus, fetch_javdb
+from javlib.sources import _same_code, fetch_jav321, fetch_javbus, fetch_javdb
 
 
 class ProbeFailure(RuntimeError):
@@ -36,11 +36,11 @@ class ProbeFetcher(Fetcher):
     def _remember_response(self, response, *args, **kwargs):
         self.response = response
 
-    def get(self, url, referer=None, binary=False, max_retry=5):
+    def _request(self, method, url, referer=None, binary=False, max_retry=5, data=None):
         for attempt in range(2):
             self.response = None
-            status, body = super().get(
-                url, referer=referer, binary=binary, max_retry=1
+            status, body = super()._request(
+                method, url, referer=referer, binary=binary, max_retry=1, data=data
             )
             response = self.response
             final_url = response.url if response is not None else url
@@ -99,6 +99,10 @@ def validate(data, source, code):
         problems.append("unexpected source")
     if not _same_code(data.get("dvdid"), code):
         problems.append("catalog number mismatch")
+    if source == "jav321":
+        if not _text(data.get("plot")):
+            problems.append("plot missing")
+        return problems
     title = data.get("title")
     if not _text(title) or _same_code(title, code):
         problems.append("title missing or only the catalog number")
@@ -134,6 +138,8 @@ def check_source(fetch, source, code, fetcher):
         return "CHECK_ERROR", f"{type(error).__name__}: {error}"
     if problems:
         return "PARSE_ERROR", "; ".join(problems)
+    if source == "jav321":
+        return "PASS", "complete matching ID and plot valid"
     return "PASS", "ID, title, date, runtime, studio, actors, genres and image URLs valid"
 
 
@@ -149,6 +155,7 @@ def main():
     probes = (
         ("JavBus", "javbus", fetch_javbus, os.getenv("JAVBUS_SMOKE_CODE", "SONE-035")),
         ("JavDB", "javdb", fetch_javdb, os.getenv("JAVDB_SMOKE_CODE", "SONE-035")),
+        ("Jav321", "jav321", fetch_jav321, os.getenv("JAV321_SMOKE_CODE", "SONE-035")),
     )
     summary = [
         "## Daily metadata parser checks", "",

@@ -105,10 +105,18 @@ def test_code_command_creates_complete_output_without_local_videos(
 
     monkeypatch.setattr(scrape, "fetch_javbus", fetch_bus)
     monkeypatch.setattr(scrape, "fetch_javdb", lambda *args: None)
+    plot_codes = []
+
+    def fetch_plot(current_fetcher, code):
+        plot_codes.append(code)
+        return {"plot": "Example synopsis."}
+
+    monkeypatch.setattr(scrape, "fetch_jav321", fetch_plot)
 
     assert run_command(monkeypatch, "sone00035", "sone_035", "SSIS-001") == 0
 
     assert queried == ["SONE-035", "SSIS-001"]
+    assert plot_codes == queried
     assert fetcher.s.calls == 4
     output = tmp_path / "output"
     assert sorted(path.name for path in output.iterdir()) == ["SONE-035", "SSIS-001"]
@@ -118,6 +126,8 @@ def test_code_command_creates_complete_output_without_local_videos(
             "movie.nfo", "fanart.jpg", "poster.jpg", "Samples"
         }
         assert ET.parse(folder / "movie.nfo").findtext("num") == code
+        assert ET.parse(folder / "movie.nfo").findtext("plot") == "Example synopsis."
+        assert ET.parse(folder / "movie.nfo").findtext("source") == "javbus+jav321"
         with Image.open(folder / "fanart.jpg") as cover:
             assert cover.size == (800, 600)
         with Image.open(folder / "poster.jpg") as poster:

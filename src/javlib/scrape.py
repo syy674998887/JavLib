@@ -16,7 +16,7 @@ from .artwork import (
 from .catalog import VIDEO_EXT, normalize
 from .filesystem import atomic_write_bytes
 from .nfo import build_nfo
-from .sources import fetch_javbus, fetch_javdb, merge_sources
+from .sources import fetch_jav321, fetch_javbus, fetch_javdb, merge_sources
 
 
 def do_inspect(folders):
@@ -70,8 +70,12 @@ def scrape_one(folder, fetcher, args):
     if not data:
         return "MISS", f"{code} was not found in either metadata source"
 
+    plot = fetch_jav321(fetcher, code)
+    if plot:
+        data["plot"] = plot["plot"]
     source_tag = "+".join(
-        source for source, found in (("javbus", bus), ("javdb", db)) if found
+        source for source, found in (("javbus", bus), ("javdb", db), ("jav321", plot))
+        if found
     )
     data["source"] = source_tag
     payload = build_nfo(data, tags, folder.name)

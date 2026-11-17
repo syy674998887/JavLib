@@ -18,13 +18,15 @@ class FakeSession:
     def __init__(self, script):
         self.script = list(script)
         self.calls = 0
+        self.requests = []
         self.headers = {}
         self.cookies = type(
             "Cookies", (), {"set": staticmethod(lambda *args, **kwargs: None)}
         )()
 
-    def get(self, url, headers=None, timeout=None):
+    def request(self, method, url, headers=None, data=None, timeout=None):
         self.calls += 1
+        self.requests.append((method, url, headers, data, timeout))
         item = self.script.pop(0) if self.script else FakeResponse(200)
         if isinstance(item, Exception):
             raise item

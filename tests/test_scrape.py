@@ -1,6 +1,8 @@
 from types import SimpleNamespace
+from xml.etree import ElementTree as ET
 
 import pytest
+import requests
 
 from javlib import scrape as scrape_module
 
@@ -11,6 +13,9 @@ class MovieFetcher:
 
     def begin_movie(self):
         self.begin_calls += 1
+
+    def post(self, *args, **kwargs):
+        return 0, None
 
 
 def metadata(code):
@@ -224,3 +229,52 @@ def test_inspect_reports_results_without_writing(tmp_path, capsys):
     assert "Recognized 1 / Unrecognized 1 / Total 2" in output
     assert "No network requests or file writes were performed" in output
     assert sorted(path.name for path in tmp_path.rglob("*")) == before
+
+
+@pytest.mark.parametrize("result", ["match", "mismatch", "empty", "blocked", "timeout"])
+def test_default_plot_enrichment_preserves_primary_metadata(
+    monkeypatch, tmp_path, controlled_fetcher, result
+):
+    folder = tmp_path / "TEST-001"
+    folder.mkdir()
+    (folder / "original.mp4").write_bytes(b"video")
+    page_id = "TEST-002" if result == "mismatch" else "TEST-001"
+    plot = "" if result == "empty" else "Example &amp; synopsis."
+    response = SimpleNamespace(
+        status_code=403 if result == "blocked" else 200, headers={},
+        text=f'<div class="panel-body"><b>品番:</b> {page_id}<br>'
+             f'<div class="row"><div class="col-md-12">{plot}</div></div></div>',
+    )
+    if result == "timeout":
+        response = requests.Timeout()
+    fetcher, _, _ = controlled_fetcher([response])
+    monkeypatch.setattr(scrape_module, "fetch_javbus", lambda f, c: metadata(c))
+    monkeypatch.setattr(scrape_module, "fetch_javdb", lambda *args: None)
+    monkeypatch.setattr(scrape_module, "download_with_alt", lambda *args: False)
+
+    status, _ = scrape_module.scrape_one(folder, fetcher, SimpleNamespace(force=False))
+
+    assert status == "OK"
+    assert fetcher.s.calls == 1
+    for filename in ("movie.nfo", "original.nfo"):
+        root = ET.parse(folder / filename)
+        assert root.findtext("title") == "TEST-001 Title"
+        assert root.findtext("num") == "TEST-001"
+        assert root.findtext("plot") == ("Example & synopsis." if result == "match" else None)
+        assert root.findtext("source") == ("javbus+jav321" if result == "match" else "javbus")
+    assert (folder / "original.mp4").read_bytes() == b"video"
+
+
+def test_plot_source_is_not_queried_without_primary_metadata(monkeypatch, tmp_path):
+    folder = tmp_path / "TEST-001"
+    folder.mkdir()
+    monkeypatch.setattr(scrape_module, "fetch_javbus", lambda *args: None)
+    monkeypatch.setattr(scrape_module, "fetch_javdb", lambda *args: None)
+    monkeypatch.setattr(
+        scrape_module, "fetch_jav321", lambda *args: pytest.fail("no primary metadata")
+    )
+
+    status, _ = scrape_module.scrape_one(folder, MovieFetcher(), SimpleNamespace(force=False))
+
+    assert status == "MISS"
+    assert not (folder / "movie.nfo").exists()
