@@ -252,3 +252,25 @@ def test_jav321_probe_reports_access_blocks_without_retry(monkeypatch, status):
 
     assert result == "ACCESS_BLOCKED"
     assert len(adapter.urls) == 1
+
+
+def test_jav321_parse_failure_describes_the_page_without_its_text(monkeypatch):
+    # The search stays on /search (no redirect), as it did from Nov 21 to Nov 24.
+    page = (
+        "<title>JAV321 search</title><p>Private body text</p>"
+        '<a href="/video/sone00035">one</a><a href="/video/sone00036">two</a>'
+    )
+    probe, _ = probe_with_responses(monkeypatch, [(200, {}, page)])
+
+    result, message = check.check_source(check.fetch_jav321, "jav321", "SONE-035", probe)
+
+    assert result == "PARSE_ERROR"
+    assert "no matching metadata parsed" in message
+    assert "title=JAV321 search" in message
+    assert "品番=0" in message
+    assert "video links=2 /video/sone00035 /video/sone00036" in message
+    assert "Private body text" not in message
+
+
+def test_page_description_handles_a_missing_response():
+    assert check.describe_page(None) == "page: no response"

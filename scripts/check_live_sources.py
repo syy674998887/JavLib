@@ -129,6 +129,20 @@ def validate(data, source, code):
     return problems
 
 
+def describe_page(response):
+    """Summarise page structure (no body text) so a layout change can be diagnosed."""
+    if response is None:
+        return "page: no response"
+    page = response.text or ""
+    title = re.search(r"<title[^>]*>(.*?)</title>", page, re.I | re.S)
+    links = sorted(set(re.findall(r"""href\s*=\s*["'](/video/[^"'?#]+)""", page)))
+    return (
+        f"page: {len(page)} chars; title={_cell(title.group(1).strip()[:80]) if title else '-'}; "
+        f"panel-body={page.count('panel-body')}; 品番={page.count('品番')}; "
+        f"video links={len(links)} {' '.join(links[:5])}"
+    )
+
+
 def check_source(fetch, source, code, fetcher):
     try:
         problems = validate(fetch(fetcher, code), source, code)
@@ -137,6 +151,8 @@ def check_source(fetch, source, code, fetcher):
     except Exception as error:
         return "CHECK_ERROR", f"{type(error).__name__}: {error}"
     if problems:
+        if source == "jav321":
+            problems.append(describe_page(getattr(fetcher, "response", None)))
         return "PARSE_ERROR", "; ".join(problems)
     if source == "jav321":
         return "PASS", "complete matching ID and plot valid"
